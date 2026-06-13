@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "encrypt",
+  "description": "Encrypt files to your default age public key.",
+  "group": "Crypto",
+  "order": 40,
+  "effect": "local_write",
+  "global_options": [
+    {
+      "name": "--copy",
+      "positional": false,
+      "required": false,
+      "help": "Keep the original file (encrypt a copy)",
+      "flags": ["-c", "--copy"],
+      "takes_value": false
+    },
+    {
+      "name": "--key",
+      "positional": false,
+      "required": false,
+      "help": "Add another public key as a recipient",
+      "flags": ["-k", "--key"],
+      "takes_value": true,
+      "metavar": "PATH",
+      "repeatable": true
+    }
+  ],
+  "positionals": [
+    {
+      "name": "file",
+      "positional": true,
+      "required": true,
+      "help": "File(s) to encrypt",
+      "variadic": true
+    }
+  ],
+  "paras": [
+    "Encrypts each file in place to your configured age recipients; pass --copy to keep the original alongside the .age output."
+  ],
+  "examples": [
+    { "command": "encrypt notes.md", "comment": "original removed" }
+  ],
+  "commands": []
+}

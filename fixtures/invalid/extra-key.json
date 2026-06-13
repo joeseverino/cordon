@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "bad",
+  "description": "Carries an undeclared top-level key. The contract is additionalProperties:false so emitters can't smuggle in tool-specific fields that consumers won't understand.",
+  "group": "X",
+  "order": 1,
+  "effect": "read",
+  "global_options": [],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": [],
+  "type": "command"
+}

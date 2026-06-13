@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "hq",
+  "description": "Sync vault docs into the ops app and operate the deploy.",
+  "group": "Integrations",
+  "order": 130,
+  "effect": "read",
+  "global_options": [],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": [
+    {
+      "name": "logs",
+      "summary": "Show app container logs (default tail 50)",
+      "args": [
+        {
+          "name": "--follow",
+          "positional": false,
+          "required": false,
+          "help": "Stream live output until Ctrl-C",
+          "flags": ["-f", "--follow"],
+          "takes_value": false
+        }
+      ],
+      "effect": "read",
+      "network": true,
+      "paras": [],
+      "examples": []
+    },
+    {
+      "name": "restart",
+      "summary": "docker compose restart app — no rebuild, no migrations",
+      "args": [],
+      "effect": "deploy",
+      "network": true,
+      "paras": [],
+      "examples": []
+    },
+    {
+      "name": "create",
+      "summary": "Create or update a Project or Asset (idempotent upsert by slug)",
+      "args": [
+        {
+          "name": "kind",
+          "positional": true,
+          "required": true,
+          "help": "What to create",
+          "choices": ["project", "asset"]
+        }
+      ],
+      "effect": "remote_write",
+      "network": true,
+      "paras": [],
+      "examples": [],
+      "delegates": "the app's create_project / create_asset management commands"
+    }
+  ]
+}

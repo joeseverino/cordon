@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "bad",
+  "description": "effect is outside the fixed ladder (read | local_write | vault_write | remote_write | deploy).",
+  "group": "X",
+  "order": 1,
+  "effect": "nuke",
+  "global_options": [],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": []
+}

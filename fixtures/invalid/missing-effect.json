@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "bad",
+  "description": "A command is missing its required effect — every command must declare a blast radius.",
+  "group": "X",
+  "order": 1,
+  "effect": "read",
+  "global_options": [],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": [
+    { "name": "ship", "summary": "deploy the app", "args": [], "paras": [], "examples": [] }
+  ]
+}
