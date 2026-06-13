@@ -1,3 +1,10 @@
-node_modules/
+# node_modules is a symlink to node_modules.nosync. The `.nosync` suffix keeps
+# iCloud from syncing the dependency tree; we commit the lockfile, not the tree.
+node_modules
+node_modules.*
+node_modules [0-9]*
+# Holding dir for manually-quarantined iCloud node_modules conflict copies.
+node_modules_conflict_tmp/
+
 *.log
 .DS_Store
