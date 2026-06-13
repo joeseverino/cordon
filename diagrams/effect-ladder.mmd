@@ -1,0 +1,14 @@
+%%{init: {'flowchart': {'rankSpacing': 65, 'nodeSpacing': 45}}}%%
+flowchart TB
+    decl["every command declares one effect<br/>+ optional network / interactive · default read"]
+
+    subgraph ladder["effect — escalating blast radius"]
+        direction LR
+        r["read"] --> lw["local_write"] --> vw["vault_write"] --> rw["remote_write"] --> dep["deploy"]
+    end
+    decl ==> ladder
+
+    gate{{"a consumer risk-gates on effect<br/>before running a command"}}
+    ladder --> gate
+    gate -->|"read"| run["run freely"]
+    gate -->|"remote_write / deploy"| confirm["confirm — or fail closed<br/>when non-interactive"]

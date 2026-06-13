@@ -1,0 +1,24 @@
+%%{init: {'flowchart': {'rankSpacing': 75, 'nodeSpacing': 55}}}%%
+flowchart TB
+    subgraph emit["Declare once — any language, two honest shapes"]
+        dsl["declare a small DSL<br/>(e.g. tools — Bash)"]
+        intro["introspect a parser<br/>(e.g. severino-vault-mcp — Python · argparse)"]
+    end
+
+    contract["Cordon contract<br/>one JSON document per tool<br/>schema_version 4 · every command carries an effect"]
+    schema{{"cordon-v4.json<br/>one JSON Schema validates every emitter"}}
+
+    dsl ==>|"emit"| contract
+    intro ==>|"emit"| contract
+    contract -.->|"conforms to"| schema
+
+    subgraph render["Render many — derived, no prose parsed, can't drift"]
+        help["human help (-h)"]
+        comp["shell completions"]
+        docs["reference docs"]
+        agent["agent-readable spec<br/>(effect-gated)"]
+    end
+    contract --> help
+    contract --> comp
+    contract --> docs
+    contract --> agent
