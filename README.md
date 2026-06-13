@@ -33,10 +33,10 @@ Two ideas, working together:
    infer from flags — and the hook a runtime gate or an AI session uses to stop
    before doing something irreversible.
 
-![Emit once, render many: one declaration per tool — declared as a DSL (e.g. tools, Bash) or introspected from a parser (e.g. severino-vault-mcp, Python/argparse) — emits one Cordon contract JSON document that conforms to the cordon-v4.json JSON Schema, and is rendered many ways (human help, shell completions, reference docs, an effect-gated agent spec) with no prose parsed](diagrams/emit-once.png)
+![Emit once, render many: one declaration per tool — declared as a DSL (e.g. tools, Bash) or introspected from a parser (e.g. severino-vault-mcp, Python/argparse) — emits one Cordon contract JSON document that conforms to the cordon-v4.json JSON Schema, and is rendered many ways (human help, shell completions, reference docs, an effect-gated agent spec) with no prose parsed](docs/diagrams/emit-once.png)
 
-<sup>Diagram source: [`diagrams/emit-once.mmd`](diagrams/emit-once.mmd),
-pre-rendered with [`diagrams/render.sh`](diagrams/render.sh).</sup>
+<sup>Diagram source: [`docs/diagrams/emit-once.mmd`](docs/diagrams/emit-once.mmd),
+pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
 ## The effect ladder
 
@@ -63,10 +63,10 @@ confirm before a `deploy`, fail closed when non-interactive. The signal lives in
 the contract; the policy lives in the consumer. (Reference gate:
 [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md#the-runtime-gate).)
 
-![The effect ladder and gate: every command declares one effect (plus optional network / interactive, default read) on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](diagrams/effect-ladder.png)
+![The effect ladder and gate: every command declares one effect (plus optional network / interactive, default read) on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
 
-<sup>Diagram source: [`diagrams/effect-ladder.mmd`](diagrams/effect-ladder.mmd),
-pre-rendered with [`diagrams/render.sh`](diagrams/render.sh).</sup>
+<sup>Diagram source: [`docs/diagrams/effect-ladder.mmd`](docs/diagrams/effect-ladder.mmd),
+pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
 ## The contract
 
