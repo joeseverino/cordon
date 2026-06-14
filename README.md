@@ -13,6 +13,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 - **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v1.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
+- **Starter template:** [`cordon-starter`](https://github.com/joeseverino/cordon-starter) · a repo scaffold with the contract, CI gate, and governance already wired
 
 ---
 
