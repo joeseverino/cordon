@@ -11,6 +11,14 @@ Cordon versions on two axes:
 
 ## [Unreleased]
 
+### Added
+- **`checks/example-report.md`** — a committed, permanent example of a run report
+  (a failing CI run, from a real run summary, plus a green run), linked from
+  `checks/README.md`. A stable artifact to point at instead of a transient CI run.
+- **A one-glance `checks-engine-mini` diagram** at the top of `checks/README.md`
+  (invariants + commands → engine → verdict); the full flow diagram moves down to
+  a "The full flow" section, sized smaller.
+
 ### Changed
 - **Checks report polish.** `.cordon-checks-report.md` gains a whole-picture
   **status table** (every check — pass/fail/skip — with its effect and, for a

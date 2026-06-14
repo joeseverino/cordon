@@ -1,0 +1,10 @@
+%%{init: {'flowchart': {'rankSpacing': 50, 'nodeSpacing': 35}}}%%
+flowchart LR
+    inputs["invariants + commands<br/>(cordon's rules + your specs)"]
+    engine{{"checks<br/>engine"}}
+    verdict["one verdict<br/>✅ pass · ❌ fail · ⏭️ skip"]
+
+    inputs ==> engine ==> verdict
+
+    classDef anchor stroke-width:2px;
+    class engine anchor;
