@@ -120,6 +120,25 @@ some-tool --describe | node conformance/validate.mjs -   # validate stdin
 one rule. They are the contract's executable definition — implement against
 them in any language.
 
+## The checks verdict
+
+Cordon's second contract — the repo-level sibling of the command surface. Where
+`--describe` answers *what does running this command cost?*, the verdict answers
+*is this repo shippable, and what fixes each failure?* — the machine-readable
+output of a portable checks runner ([`checks/`](checks/)).
+
+- **Its own schema.** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json),
+  independently versioned (`schema_version: 1`); `cordon-v4.json` stays frozen.
+- **Same harness.** A verdict validates through `conformance/validate.mjs`, which
+  picks the schema by shape — `commands[]` → surface, `checks[]` → verdict.
+- **Same vocabulary.** Every check carries an `effect` on the ladder above, so an
+  agent reads the cost of *producing* a verdict in the same terms as a command.
+- **Acts, not just reports.** A failed check must carry its `fix` and exact
+  `rerun`, so the verdict is something an agent acts on, not merely parses.
+
+Depth — the checks-vs-tests boundary, per-repo config, and how to add a check —
+lives in [`checks/README.md`](checks/README.md).
+
 ## Consuming cordon from another repo
 
 `conformance/validate.mjs` is the **supported way for another repo to validate
