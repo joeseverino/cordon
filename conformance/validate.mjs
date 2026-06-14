@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { checksSemanticErrors, surfaceSemanticErrors } from './semantics.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -24,16 +25,23 @@ const compile = (file) => ajv.compile(JSON.parse(fs.readFileSync(path.join(root,
 const validateSurface = compile('schema/cordon-v4.json');
 const validateChecks = compile('schema/cordon-checks-v1.json');
 
-function errorsFor(validate, doc) {
-  return validate(doc) ? [] : (validate.errors || []).map((e) => `${e.instancePath || '/'} ${e.message}`);
+function errorsFor(validate, semantics, doc) {
+  if (!validate(doc)) {
+    return (validate.errors || []).map((e) => `${e.instancePath || '/'} ${e.message}`);
+  }
+  return semantics(doc);
 }
 
 // Pick the contract by shape: a command surface has `commands[]`; a checks
 // verdict has `checks[]`. Returns null for a document that is neither.
 function contractFor(doc) {
   if (doc && typeof doc === 'object') {
-    if (Array.isArray(doc.commands)) return { validate: validateSurface, label: 'Cordon contract' };
-    if (Array.isArray(doc.checks)) return { validate: validateChecks, label: 'Cordon checks verdict' };
+    if (Array.isArray(doc.commands)) {
+      return { validate: validateSurface, semantics: surfaceSemanticErrors, label: 'Cordon contract' };
+    }
+    if (Array.isArray(doc.checks)) {
+      return { validate: validateChecks, semantics: checksSemanticErrors, label: 'Cordon checks verdict' };
+    }
   }
   return null;
 }
@@ -71,7 +79,7 @@ if (arg) {
     console.error(`✗ ${arg} is neither a Cordon contract nor a checks verdict (no commands[] or checks[])`);
     process.exit(1);
   }
-  const errors = errorsFor(contract.validate, doc);
+  const errors = errorsFor(contract.validate, contract.semantics, doc);
   if (errors.length) {
     for (const e of errors) console.error(`  ${e}`);
     console.error(`✗ ${arg} is not a valid ${contract.label}`);
@@ -85,11 +93,11 @@ if (arg) {
 // contract owns its own fixture trees, swept against its own schema.
 const fixtures = path.join(root, 'fixtures');
 let failures = 0;
-const sweep = (dir, mustPass, validate) => {
+const sweep = (dir, mustPass, validate, semantics) => {
   const full = path.join(fixtures, dir);
   if (!fs.existsSync(full)) return;
   for (const name of fs.readdirSync(full).filter((n) => n.endsWith('.json')).sort()) {
-    const errors = errorsFor(validate, readJson(path.join(full, name)));
+    const errors = errorsFor(validate, semantics, readJson(path.join(full, name)));
     const passed = errors.length === 0;
     if (passed === mustPass) {
       console.log(`  ok   ${dir}/${name}`);
@@ -101,10 +109,10 @@ const sweep = (dir, mustPass, validate) => {
     }
   }
 };
-sweep('valid', true, validateSurface);
-sweep('invalid', false, validateSurface);
-sweep('checks/valid', true, validateChecks);
-sweep('checks/invalid', false, validateChecks);
+sweep('valid', true, validateSurface, surfaceSemanticErrors);
+sweep('invalid', false, validateSurface, surfaceSemanticErrors);
+sweep('checks/valid', true, validateChecks, checksSemanticErrors);
+sweep('checks/invalid', false, validateChecks, checksSemanticErrors);
 
 if (failures) {
   console.error(`\n${failures} fixture(s) did not behave as specified`);

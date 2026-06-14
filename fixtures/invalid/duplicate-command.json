@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "bad",
+  "description": "Two commands have the same name.",
+  "group": "X",
+  "order": 1,
+  "effect": "read",
+  "global_options": [],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": [
+    {
+      "name": "status",
+      "summary": "First status command",
+      "args": [],
+      "effect": "read",
+      "paras": [],
+      "examples": []
+    },
+    {
+      "name": "status",
+      "summary": "Second status command",
+      "args": [],
+      "effect": "read",
+      "paras": [],
+      "examples": []
+    }
+  ]
+}

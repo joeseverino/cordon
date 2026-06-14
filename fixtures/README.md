@@ -19,6 +19,8 @@ verdict (`schema/cordon-checks-v1.json`).
 | `invalid/missing-effect.json` | reject | Every command must declare a blast radius (`effect` is required). |
 | `invalid/bad-effect.json` | reject | `effect` must be one of the fixed ladder values. |
 | `invalid/extra-key.json` | reject | `additionalProperties: false` — no smuggling tool-specific fields. |
+| `invalid/duplicate-command.json` | reject | Command names are unique within a tool. |
+| `invalid/incoherent-option.json` | reject | Option names/flags and value metadata must agree. |
 
 ## Checks verdict — `schema/cordon-checks-v1.json`
 
@@ -37,3 +39,4 @@ deterministic — checks ride in registry order and `failed[]` is derived.
 | `checks/invalid/bad-status.json` | reject | `status` must be `pass`/`fail`/`skip`. |
 | `checks/invalid/bad-effect.json` | reject | A check's `effect` must be one of the fixed ladder values. |
 | `checks/invalid/extra-key.json` | reject | `additionalProperties: false` — no smuggling per-check fields. |
+| `checks/invalid/inconsistent-verdict.json` | reject | `ok`, `failed`, `report`, and `checks[].status` must describe the same verdict. |

@@ -19,8 +19,9 @@ declaration lives — read from a parser you already have, or a DSL you add.
 Emit one JSON object per tool with every required key present (see the schema).
 Notes that trip people up:
 
-- **`effect` is required on the tool and on every command.** Default to `read`
-  when undeclared; never omit it. This is the whole point — see below.
+- **`effect` is required on the tool and on every command.** Require authors to
+  declare it explicitly, including `read`; never infer a safety classification.
+  This is the whole point — see below.
 - **`additionalProperties: false` everywhere.** Emit *only* the keys the schema
   names. Don't leak runtime-specific fields (a real bug we've hit: argparse's
   `type`/`default` are not in the contract — drop them).
@@ -38,9 +39,9 @@ Notes that trip people up:
 
 ## Declare the effect
 
-`effect` is the signal a consumer risk-gates on. Declare it wherever you declare
-the command, on the ladder `read → local_write → vault_write → remote_write →
-deploy`. Tag `network` when the requested operation reaches off-box,
+`effect` is the signal a consumer risk-gates on. Declare it explicitly wherever
+you declare the tool or command, on the ladder `read → local_write → vault_write
+→ remote_write → deploy`. Tag `network` when the requested operation reaches off-box,
 `interactive` when it blocks on a TTY. If you can't say what a command does to
 the world, you can't safely let an agent run it — so make this non-optional in
 your emitter.
@@ -79,6 +80,10 @@ command.
 ```bash
 your-tool --describe | node ../conformance/validate.mjs -
 ```
+
+The harness applies both JSON Schema validation and the cross-field semantic
+rules in `conformance/semantics.mjs`. Reuse that harness instead of maintaining
+a private approximation when Cordon is available.
 
 Then add your tool to [`EMITTERS.md`](EMITTERS.md). If a fixture blocks you,
 that's the spec doing its job — fix the emitter, not the fixture.

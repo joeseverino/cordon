@@ -81,7 +81,7 @@ confirm before a `deploy`, fail closed when non-interactive. The signal lives in
 the contract; the policy lives in the consumer. (Reference gate:
 [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md#the-runtime-gate).)
 
-![The effect ladder and gate: every command declares one effect (plus optional network / interactive, default read) on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
+![The effect ladder and gate: every command explicitly declares one effect plus optional network and interactive tags on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
 
 <sup>Diagram source: [`docs/diagrams/effect-ladder.mmd`](docs/diagrams/effect-ladder.mmd),
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
@@ -112,8 +112,9 @@ See [`schema/cordon-v4.json`](schema/cordon-v4.json) for the full definition of
 
 ## Conformance
 
-An emitter conforms when its output validates against the schema and behaves the
-way the fixtures specify:
+An emitter conforms when its output validates against the schema, satisfies the
+cross-field rules in `conformance/semantics.mjs`, and behaves the way the
+fixtures specify:
 
 ```bash
 npm ci
