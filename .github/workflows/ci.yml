@@ -14,10 +14,20 @@ jobs:
         with:
           node-version: "24"
       - run: npm ci
-      - name: Validate fixtures against the schema
-        run: node conformance/validate.mjs
-      # Runs cordon's own checks over cordon — including the dogfooded
-      # idempotence check that fails if checks/config.schema.json has drifted
-      # from its source (the per-check configSchema declarations).
+      # The fixture sweep (every verdict/contract shape) AND the engine self-test
+      # (invariants, command entries, capability gating, phases — and that the
+      # live --json validates against the schema). One green badge, both proven.
+      - name: Conformance + engine self-test
+        run: npm test
+      # cordon's checks engine over cordon — including the dogfooded idempotence
+      # check that fails if checks/config.schema.json has drifted from its source
+      # (the per-check configSchema declarations). On failure the actionable
+      # report (one row per failure, fix + rerun) is surfaced in the run summary;
+      # the same verdict is available as --json for an agent.
       - name: Checks (dogfood, guards the derived config schema)
-        run: npm run checks
+        run: |
+          node checks/run.mjs --root "$PWD" || {
+            status=$?
+            [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
+            exit $status
+          }

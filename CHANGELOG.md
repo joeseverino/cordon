@@ -17,6 +17,30 @@ Cordon versions on two axes:
   implementations.
 
 ### Added
+- **The checks gate engine** — `checks/run.mjs` grows from an in-process invariant
+  loop into the harness brains a consuming repo references instead of
+  reimplementing. It now runs **two kinds of check** through one loop: cordon's
+  built-in **invariants** (portable, in `registry.mjs`) and a repo's own
+  **command** entries (spawned specs like `playwright`/`tsc`, declared as data in
+  `cordon.checks.json` `commands[]`) — spec definitions stay home, the engine is
+  central. Adds a **capability layer** (`checks/lib/capabilities.mjs`:
+  `git`/`macos`/`ci`/`built-dir`/`<binary>`, with `!` negation) so a check declares
+  what it `requires` and the engine **skips fail-soft** what the environment can't
+  satisfy — the default posture is lean, a repo lights up only what it opts into.
+  Adds **phases** (`pre-build` → `build` → `post-build`, capabilities re-detected
+  between them so post-build checks see a fresh build) and `--phase`. The spawn
+  harness (`checks/lib/run-process.mjs`) and built-output walking
+  (`checks/lib/built-tree.mjs`) graduate from `jseverino.com`. A hermetic
+  `checks/selftest.mjs` runs under `npm test`. Two reference post-build invariants
+  graduate too: **`internal-links`** and **`structural-html`**. `checks/README.md`
+  gets a plain-English engine diagram (`docs/diagrams/checks-engine.{mmd,png}`,
+  the checks sibling of `emit-once` / `effect-ladder`).
+- **Checks verdict `schema_version 2`** (`schema/cordon-checks-v2.json`) — v1 plus
+  the two signals the engine adds: per-check **`phase`** and **`unmet`** (the
+  capabilities a skipped check needed but the environment lacked), so an agent
+  reads *why* a check skipped, not just that it did. v1 stays valid; the
+  conformance harness now selects the verdict schema by `schema_version`, and
+  `cordon-v4.json` stays frozen.
 - **Derived `cordon.checks.json` schema** (`checks/config.schema.json`, emitted by
   `checks/run.mjs --schema`). Each check declares its config seam once as a
   `configSchema` fragment on its default export; `defaultsOf` (`checks/lib/config.mjs`)

@@ -2,13 +2,117 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/joeseverino/cordon/main/checks/config.schema.json",
   "title": "cordon.checks.json",
-  "description": "Per-repo configuration for cordon's portable checks. Each top-level key is a check id; omit a key to use that check's defaults. Run `node checks/run.mjs --list` to see every check.",
+  "description": "Per-repo configuration for cordon's checks engine. Most keys are a check id (omit one to use that check's defaults); `builtDirs` and `commands` configure the engine itself. Run `node checks/run.mjs --list` to see every check that applies here.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "$schema": {
       "type": "string",
       "description": "Reference to this schema for editor autocomplete and validation."
+    },
+    "builtDirs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "dist",
+        "dist.nosync"
+      ],
+      "description": "Candidate build-output dirs (first non-empty one wins). Drives the `built-dir` capability and the post-build invariants, so they agree on where the build is."
+    },
+    "commands": {
+      "type": "array",
+      "description": "This repo's own spawned specs (playwright, tsc, a bespoke audit) — merged with cordon's built-in invariants and run by the same engine. Spec code stays in the repo; this is just the inventory.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "effect",
+          "exec"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable id (verdict key, --only target). Unique across built-in checks too."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human title for the verdict; defaults to id."
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "local_write",
+              "vault_write",
+              "remote_write",
+              "deploy"
+            ],
+            "description": "Blast radius an agent risk-gates on (cordon's ladder). Required — an unclassified spec must never run as a safe read."
+          },
+          "network": {
+            "const": true,
+            "description": "Set only when the spec itself reaches off-box."
+          },
+          "interactive": {
+            "const": true,
+            "description": "Set only when the spec blocks on a TTY."
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Capabilities it needs (git/macos/ci/built-dir/<binary>, or !cap to negate); the engine skips it fail-soft when unmet."
+          },
+          "phase": {
+            "enum": [
+              "pre-build",
+              "build",
+              "post-build"
+            ],
+            "description": "Where it runs around the build. Default pre-build."
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Kill the spec after this many ms rather than wedge the gate."
+          },
+          "fix": {
+            "type": "string",
+            "description": "One-line remediation shown on failure."
+          },
+          "exec": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cmd"
+            ],
+            "description": "The process to spawn from the repo root.",
+            "properties": {
+              "cmd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Extra env, merged over the process env."
+              }
+            }
+          }
+        }
+      }
     },
     "repository-policy": {
       "type": "object",
@@ -72,6 +176,37 @@
           "description": "Kill the command after this many milliseconds rather than wedge the gate."
         }
       }
+    },
+    "internal-links": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Internal link integrity over the built HTML. Universal rule; the two seams below adapt it to a site.",
+      "properties": {
+        "origin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Production origin (e.g. \"https://example.com\") to treat as same-site, so absolute canonical/og URLs are resolved against the build. null leaves external origins out of scope."
+        },
+        "dynamicRoutePrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "/api/",
+            "/cdn-cgi/"
+          ],
+          "description": "Path prefixes served by functions/proxies, not emitted files — references under them are allowlisted instead of resolved on disk."
+        }
+      }
+    },
+    "structural-html": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Structural HTML\" check — no options."
     }
   }
 }

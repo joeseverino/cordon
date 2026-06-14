@@ -1,0 +1,52 @@
+{
+  "ok": false,
+  "schema_version": 2,
+  "failed": ["internal-links"],
+  "report": ".cordon-checks-report.md",
+  "checks": [
+    {
+      "id": "repository-policy",
+      "name": "Repository Policy",
+      "status": "pass",
+      "durationMs": 22,
+      "effect": "read",
+      "phase": "pre-build"
+    },
+    {
+      "id": "build",
+      "name": "Production Static Build",
+      "status": "pass",
+      "durationMs": 8140,
+      "effect": "local_write",
+      "phase": "build"
+    },
+    {
+      "id": "internal-links",
+      "name": "Internal Link Integrity",
+      "status": "fail",
+      "durationMs": 36,
+      "effect": "read",
+      "phase": "post-build",
+      "fix": "A built page references an internal URL the build did not emit. Fix the link, or restore the missing target.",
+      "rerun": "node checks/run.mjs --only internal-links"
+    },
+    {
+      "id": "browser-tests",
+      "name": "Playwright Browser Tests",
+      "status": "skip",
+      "durationMs": 0,
+      "effect": "local_write",
+      "phase": "post-build",
+      "unmet": ["playwright", "macos"]
+    },
+    {
+      "id": "vault-parity",
+      "name": "Vault/MCP/Code Parity",
+      "status": "skip",
+      "durationMs": 0,
+      "effect": "read",
+      "phase": "pre-build",
+      "unmet": ["!ci"]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+%%{init: {'flowchart': {'rankSpacing': 60, 'nodeSpacing': 45}}}%%
+flowchart TB
+    subgraph sources["Two kinds of check — merged into one engine"]
+        direction LR
+        inv["invariants<br/>cordon's portable rules<br/>(referenced, never vendored)"]
+        cmd["commands<br/>this repo's own specs<br/>(data in cordon.checks.json)"]
+    end
+
+    engine{{"checks engine<br/>merge · capability-gate · phase-order · collect-all"}}
+    inv ==> engine
+    cmd ==> engine
+
+    gate{"does the repo have<br/>what the check requires?<br/>git · macos · built-dir · «binary»"}
+    engine ==> gate
+
+    gate -->|"yes"| run["run it in phase order<br/>pre-build → build → post-build"]
+    gate -->|"no"| skip["SKIP — fail-soft,<br/>names the unmet capability"]
+    run --> pass["PASS"]
+    run --> fail["FAIL — carries fix + rerun"]
+
+    subgraph verdict["one verdict · cordon-checks-v2 · human + --json"]
+        direction LR
+        pass
+        fail
+        skip
+    end
+
+    verdict ==> who["users read it · agents risk-gate on it<br/>before they act"]
+
+    %% the pivot every check converges on, then branches from — styled by .anchor in the shared theme
+    classDef anchor stroke-width:2px;
+    class engine anchor;
+
+    %% outcome colors = the runner's own [PASS]/[FAIL]/[SKIP] tags: the diagram reads like the terminal
+    classDef pass fill:#DCFCE7,stroke:#16A34A,color:#0b0620;
+    classDef fail fill:#FEE2E2,stroke:#DC2626,color:#0b0620;
+    classDef skipc fill:#FEF3C7,stroke:#D97706,color:#0b0620;
+    class pass pass;
+    class fail fail;
+    class skip skipc;
