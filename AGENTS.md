@@ -72,6 +72,18 @@ diagram docs/diagrams/
 
 Commit both `.mmd` and `.png`, then link the source and canonical renderer.
 
+## Local hooks
+
+Run `scripts/setup-hooks.sh` once per clone to point git at the tracked
+`.githooks/` (`core.hooksPath`). The hooks travel with the repo; the local
+config that activates them does not, so each clone enables them once.
+
+- `pre-commit` — refuses commits on `main`/`master` (bypass: `ALLOW_MAIN_COMMIT=1`).
+- `commit-msg` — rejects AI co-author / tool attribution trailers; commits stay
+  solo-authored (bypass: `git commit --no-verify`).
+- `pre-push` — runs `npm test` (the conformance gate CI runs), so red never
+  leaves the machine (bypass: `git push --no-verify`).
+
 ## Verification
 
 Run:

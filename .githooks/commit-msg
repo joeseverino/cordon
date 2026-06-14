@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# commit-msg — keep commit history first-person: reject automated co-author /
+# tool attribution trailers. Bypass deliberately with: git commit --no-verify
+set -euo pipefail
+
+msg_file="$1"
+pattern='co-authored-by:[[:space:]]*(claude|anthropic)|generated with[[:space:]]+claude|🤖[[:space:]]*generated'
+
+if grep -qiE "$pattern" "$msg_file"; then
+    echo "✗ Commit message carries AI attribution — strip it (solo-authored):" >&2
+    grep -niE "$pattern" "$msg_file" | sed 's/^/    /' >&2
+    exit 1
+fi

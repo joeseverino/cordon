@@ -157,6 +157,17 @@ as `cordon-v5.json` and old consumers keep validating against v4. The name
 *Cordon* is the standard; the number is the contract revision. The repo itself is
 released on SemVer — see [`CHANGELOG.md`](CHANGELOG.md), which records both axes.
 
+## Local development
+
+Run `scripts/setup-hooks.sh` once per clone to enable the tracked git hooks
+(`core.hooksPath` → `.githooks/`):
+
+- `pre-commit` blocks commits on `main`/`master` (bypass: `ALLOW_MAIN_COMMIT=1`).
+- `commit-msg` rejects AI attribution trailers — commits stay solo-authored
+  (bypass: `git commit --no-verify`).
+- `pre-push` runs `npm test`, the same conformance gate CI runs, so red never
+  leaves the machine (bypass: `git push --no-verify`).
+
 ## License
 
 [MIT](LICENSE) © Joe Severino
