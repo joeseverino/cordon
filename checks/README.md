@@ -7,14 +7,12 @@ same idea cordon exists for: **a guarantee declared once, centrally, that a repo
 *references* instead of reimplementing** — so it can't drift, and an agent reads
 the verdict before it acts.
 
+![cordon's checks engine in one line: invariants plus your command specs flow into one engine that emits one verdict — pass, fail, or skip.](../docs/diagrams/checks-engine-mini.png)
+
 The engine runs every applicable check over a repo, in phase order, skipping
 fail-soft what the environment can't satisfy, and emits one machine-readable
 verdict ([`schema/cordon-checks-v2.json`](../schema/cordon-checks-v2.json)).
-
-![Two kinds of check — cordon's portable invariants and a repo's own command specs — merge into one checks engine. Each is capability-gated: if the repo has what the check requires (git, macos, built-dir, a binary) it runs in phase order pre-build → build → post-build to PASS or FAIL (carrying fix + rerun); if not, it SKIPs fail-soft, naming the unmet capability. All three outcomes collect into one cordon-checks-v2 verdict — human output plus --json — that users read and agents risk-gate on before they act.](../docs/diagrams/checks-engine.png)
-
-<sup>Diagram source: [`docs/diagrams/checks-engine.mmd`](../docs/diagrams/checks-engine.mmd),
-pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
+[See a real run report →](example-report.md) · [the full flow ↓](#the-full-flow).
 
 ```
 checks/
@@ -93,6 +91,13 @@ fails a Linux runner.
 A leading `!` negates — `requires: ["!ci"]` means *only when not in CI* (the
 portable form of an authoring-machine-only check). The vocabulary is
 [`lib/capabilities.mjs`](lib/capabilities.mjs).
+
+## The full flow
+
+<img src="../docs/diagrams/checks-engine.png" alt="Two kinds of check — cordon's portable invariants and a repo's own command specs — merge into one checks engine. Each is capability-gated: if the repo has what the check requires (git, macos, built-dir, a binary) it runs in phase order pre-build → build → post-build to PASS or FAIL (carrying fix + rerun); if not, it SKIPs fail-soft, naming the unmet capability. All three outcomes collect into one cordon-checks-v2 verdict — human output plus --json — that users read and agents risk-gate on before they act." width="540">
+
+<sup>Diagram source: [`docs/diagrams/checks-engine.mmd`](../docs/diagrams/checks-engine.mmd),
+pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
 ## Run it
 
@@ -182,6 +187,9 @@ run (the `CI` env) turns that on automatically — so the summary is always ther
 CI but never clutters a local green run. It is **gitignored, never committed**.
 (The `--json` `report` field stays the *failure* pointer: the path on failure,
 `null` on a green run.)
+
+See [**`example-report.md`**](example-report.md) for a real one — a failing CI run
+and a green run, side by side.
 
 ## Per-repo configuration
 
