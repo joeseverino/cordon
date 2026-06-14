@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://jseverino.com/schemas/cordon-checks-v1.json",
-  "$comment": "Canonical source: the cordon repo at schema/cordon-checks-v1.json. The repo-level sibling of cordon-v4.json — where the command-surface contract answers 'what does running this command cost?', this answers 'is this repo shippable, and what do I do about each failure?'. checks/run.mjs --json is the reference emitter.",
+  "$comment": "Canonical home: https://jseverino.com/schemas/cordon-checks-v1.json (the value of $id above) — the live, immutable URL this schema_version pins. The copy in the cordon repo at schema/cordon-checks-v1.json is the byte-identical development mirror; reference it for validation. The repo-level sibling of cordon-v4.json: where the command-surface contract answers 'what does running this command cost?', this answers 'is this repo shippable, and what fixes each failure?'. checks/run.mjs --json is the reference emitter.",
   "title": "Cordon checks verdict (schema_version 1)",
   "type": "object",
   "additionalProperties": false,

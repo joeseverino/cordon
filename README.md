@@ -10,7 +10,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
-- **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) — the repo-level sibling contract (*is this repo shippable?*)
+- **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v1.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 
@@ -134,8 +134,9 @@ node "$CORDON_HOME/conformance/validate.mjs" path/to/contract.json   # exit 0 va
 drifts silently, and the published `https://jseverino.com/schemas/cordon-v4.json`
 is bot-gated (200 in a browser, 403 from CI / datacenter IPs). Point a
 `$CORDON_HOME`-style variable at a checkout of this repo — a local clone, or a CI
-checkout of the public repo — and call the validator from there. The schema and
-validator are then always cordon's real, current files.
+checkout of the public repo — and call the validator from there. You then
+validate against the exact, byte-identical schema for the version your contract
+pins (the canonical home is the live `$id` URL; this repo is its mirror).
 
 ## Writing an emitter
 
