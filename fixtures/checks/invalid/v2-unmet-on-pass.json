@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "schema_version": 2,
+  "failed": [],
+  "report": null,
+  "checks": [
+    {
+      "id": "structural-html",
+      "name": "Structural HTML",
+      "status": "pass",
+      "durationMs": 18,
+      "effect": "read",
+      "phase": "post-build",
+      "unmet": ["built-dir"]
+    }
+  ]
+}

@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node conformance/validate.mjs",
+    "test": "node conformance/validate.mjs && node checks/selftest.mjs",
     "checks": "node checks/run.mjs"
   },
   "dependencies": {

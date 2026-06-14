@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "schema_version": 2,
+  "failed": [],
+  "report": null,
+  "checks": [
+    {
+      "id": "seo-metadata",
+      "name": "SEO Metadata",
+      "status": "pass",
+      "durationMs": 41,
+      "effect": "read",
+      "phase": "after"
+    }
+  ]
+}
