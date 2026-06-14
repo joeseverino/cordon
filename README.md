@@ -10,6 +10,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
+- **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 

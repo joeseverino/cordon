@@ -1,0 +1,15 @@
+{
+  "ok": false,
+  "schema_version": 1,
+  "failed": ["repository-policy"],
+  "report": ".cordon-checks-report.md",
+  "checks": [
+    {
+      "id": "repository-policy",
+      "name": "Repository Policy",
+      "status": "fail",
+      "durationMs": 31,
+      "effect": "read"
+    }
+  ]
+}

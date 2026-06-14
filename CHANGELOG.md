@@ -19,6 +19,20 @@ Cordon versions on two axes:
 ### Added
 - This changelog, and a `CLAUDE.md → AGENTS.md` symlink so AGENTS.md-aware tools
   and Claude Code read the same contributor guide.
+- **Checks verdict contract** (`schema/cordon-checks-v1.json`) — the repo-level
+  sibling of the command-surface schema. Where the surface answers *"what does
+  running this command cost?"*, the verdict answers *"is this repo shippable, and
+  what fixes each failure?"*. It is a separate, independently versioned schema
+  (`schema_version: 1`), not a field on `cordon-v4.json`, which stays frozen. The
+  schema requires the two signals an agent acts on: a failed check **must** carry
+  `fix` + `rerun`. `checks/run.mjs --json` is the reference emitter, validated by
+  the conformance harness (which now selects the schema by document shape:
+  `commands[]` → surface, `checks[]` → verdict). Fixtures live under
+  `fixtures/checks/{valid,invalid}/`.
+- **`effect` on checks** — a check module now declares an `effect` on cordon's
+  blast-radius ladder (plus `network` / `interactive`), so an agent reads the
+  cost of *producing* a verdict in the same vocabulary as a command's
+  `--describe`. It renders in the runner's human output and rides into the JSON.
 
 ## [1.0.0] — 2026-06-11
 
