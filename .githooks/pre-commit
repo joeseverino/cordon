@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# pre-commit — refuse commits straight onto a protected branch. The local
+# stand-in for branch protection a private repo can't enforce without GitHub Pro.
+# Allowed: the initial commit (no HEAD yet, so `git init` bootstraps) and an
+# explicit ALLOW_MAIN_COMMIT=1 override.
+set -euo pipefail
+
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+case "$branch" in
+    main|master)
+        git rev-parse --verify HEAD >/dev/null 2>&1 || exit 0      # initial commit
+        [[ "${ALLOW_MAIN_COMMIT:-0}" == 1 ]] && exit 0
+        echo "✗ Refusing to commit on '$branch'. Branch first:" >&2
+        echo "    git fetch origin && git checkout -b <feature> origin/main" >&2
+        echo "  Override once: ALLOW_MAIN_COMMIT=1 git commit …" >&2
+        exit 1
+        ;;
+esac
