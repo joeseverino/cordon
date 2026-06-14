@@ -4,7 +4,10 @@
 // so completeness is structural: add a check here and every gate that claims it
 // picks it up. This is the inventory; checks/run.mjs is the run logic.
 //
-// A check is a module exporting { id, name, effect, fix, gates, run(ctx) }; see
+// A check is a module exporting { id, name, effect, fix, gates, run(ctx) } and an
+// optional `configSchema` (a JSON Schema fragment for its slice of
+// cordon.checks.json — config-schema.mjs composes these into the published file
+// schema, and each check derives its runtime defaults from the same source); see
 // checks/lib/repository-policy.mjs for the contract. The `effect` is cordon's own
 // blast-radius ladder (read | local_write | … | deploy) applied to the check
 // itself, so an agent reads the verdict and the cost of producing it in one

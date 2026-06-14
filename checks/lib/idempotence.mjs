@@ -12,13 +12,32 @@
 // cost of producing it, which is exactly what goldmine-2's effect-on-checks is
 // for: never silently run a build behind a "checks" call that looked read-only.
 import { spawnSync } from 'node:child_process';
+import { defaultsOf } from './config.mjs';
 
-const DEFAULTS = {
-  // The command to run, as a shell string. null = nothing to check -> skip.
-  command: null,
-  // Kill a hung command rather than wedge the gate.
-  timeoutMs: 10 * 60_000,
+// The check's config seam, declared once as JSON Schema and carried on the
+// default export. config-schema.mjs composes it into the editor/AI-facing
+// `cordon.checks.json` schema; the runtime DEFAULTS below are derived from the
+// same source, so the documented default and the actual default are one value.
+const configSchema = {
+  type: 'object',
+  additionalProperties: false,
+  description: 'Run a build/verify command and assert it leaves the worktree byte-identical. Off until you set a command.',
+  properties: {
+    command: {
+      type: ['string', 'null'],
+      default: null,
+      description: 'Shell command whose run must not change tracked or untracked files, e.g. "npm run build". null skips the check — set this to turn it on.',
+    },
+    timeoutMs: {
+      type: 'integer',
+      minimum: 1,
+      default: 600000,
+      description: 'Kill the command after this many milliseconds rather than wedge the gate.',
+    },
+  },
 };
+
+const DEFAULTS = defaultsOf(configSchema);
 
 function isGitRepo(root) {
   const r = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8' });
@@ -33,6 +52,7 @@ export default {
   name: 'Worktree Idempotence',
   effect: 'local_write',
   gates: ['check'],
+  configSchema,
   fix: 'A configured command mutated the worktree. Commit the generated output, '
     + 'add it to .gitignore, or make the step deterministic so re-running leaves '
     + 'the tree byte-identical. The detail shows what changed.',

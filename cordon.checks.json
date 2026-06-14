@@ -1,0 +1,6 @@
+{
+  "$schema": "./checks/config.schema.json",
+  "idempotence": {
+    "command": "node checks/run.mjs --schema > checks/config.schema.json"
+  }
+}
