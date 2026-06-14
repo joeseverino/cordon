@@ -5,8 +5,8 @@ Implementations that produce Cordon-conformant contracts. Each validates against
 
 | Emitter | Language | Shape | How |
 |---|---|---|---|
-| `severino-tools` | Bash | **declare** | A `describe_spec()` DSL (`desc_cmd`, `desc_opt`, `desc_effect`, …) rendered to both `-h` text and the JSON contract by two pure renderers. Also hosts the reference runtime deploy gate. |
-| `severino-vault-mcp` | Python | **introspect** | Walks its `argparse` parser and projects it to the contract — `--help` made machine-readable, so it can't drift from the parser. |
+| [`severino-tools`](https://github.com/joeseverino/tools) | Bash | **declare** | A `describe_spec()` DSL (`desc_cmd`, `desc_opt`, `desc_effect`, …) rendered to both `-h` text and the JSON contract by two pure renderers. Also hosts the reference runtime deploy gate. Implementation notes: [`docs/command-surface-contract.md`](https://github.com/joeseverino/tools/blob/main/docs/command-surface-contract.md). |
+| [`severino-vault-mcp`](https://github.com/joeseverino/severino-vault-mcp) | Python | **introspect** | Walks its `argparse` parser and projects it to the contract — `--help` made machine-readable, so it can't drift from the parser. Emitter: [`cli_introspect.py`](https://github.com/joeseverino/severino-vault-mcp/blob/main/src/severino_vault_mcp/cli_introspect.py). |
 
 Adding one? Implement against the [fixtures](../fixtures/), validate your
 `--describe` output, and open a PR adding a row here.

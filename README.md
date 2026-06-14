@@ -134,10 +134,11 @@ Full guide: [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md). Known emitters:
 
 ## Versioning
 
-One version axis: the on-wire `schema_version` integer. The schema URL tracks it
-(`cordon-v4.json` ↔ `schema_version: 4`); a future breaking shape ships as
-`cordon-v5.json` and old consumers keep validating against v4. The name *Cordon*
-is the standard; the number is the contract revision.
+The on-wire `schema_version` integer is the contract revision: the schema URL
+tracks it (`cordon-v4.json` ↔ `schema_version: 4`); a future breaking shape ships
+as `cordon-v5.json` and old consumers keep validating against v4. The name
+*Cordon* is the standard; the number is the contract revision. The repo itself is
+released on SemVer — see [`CHANGELOG.md`](CHANGELOG.md), which records both axes.
 
 ## License
 
