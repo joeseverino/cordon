@@ -119,6 +119,23 @@ some-tool --describe | node conformance/validate.mjs -   # validate stdin
 one rule. They are the contract's executable definition — implement against
 them in any language.
 
+## Consuming cordon from another repo
+
+`conformance/validate.mjs` is the **supported way for another repo to validate
+its own contracts**, not just cordon's internal CI tool. Single-document mode is
+a stable entry point within a schema version:
+
+```bash
+node "$CORDON_HOME/conformance/validate.mjs" path/to/contract.json   # exit 0 valid, 1 invalid
+```
+
+**Reference this repo; don't vendor the schema.** A copied `cordon-v4.json`
+drifts silently, and the published `https://jseverino.com/schemas/cordon-v4.json`
+is bot-gated (200 in a browser, 403 from CI / datacenter IPs). Point a
+`$CORDON_HOME`-style variable at a checkout of this repo — a local clone, or a CI
+checkout of the public repo — and call the validator from there. The schema and
+validator are then always cordon's real, current files.
+
 ## Writing an emitter
 
 You don't share code across languages — you converge on this output. Two honest
