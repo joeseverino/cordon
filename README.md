@@ -8,6 +8,11 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 > Emit once, render many. One declaration per tool; every surface derived from
 > it, so they can't drift — and a deploy can't be mistaken for a read.
 
+![Emit once, render many: one declaration per tool — declared as a DSL (e.g. tools, Bash) or introspected from a parser (e.g. severino-vault-mcp, Python/argparse) — emits one Cordon contract JSON document that conforms to the cordon-v4.json JSON Schema, and is rendered many ways (human help, shell completions, reference docs, an effect-gated agent spec) with no prose parsed](docs/diagrams/emit-once.png)
+
+<sup>Diagram source: [`docs/diagrams/emit-once.mmd`](docs/diagrams/emit-once.mmd),
+pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
+
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
 - **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v1.json` — the repo-level sibling contract (*is this repo shippable?*)
@@ -35,11 +40,6 @@ Two ideas, working together:
    an `effect` on a fixed, escalating ladder. It is the one fact a caller can't
    infer from flags — and the hook a runtime gate or an AI session uses to stop
    before doing something irreversible.
-
-![Emit once, render many: one declaration per tool — declared as a DSL (e.g. tools, Bash) or introspected from a parser (e.g. severino-vault-mcp, Python/argparse) — emits one Cordon contract JSON document that conforms to the cordon-v4.json JSON Schema, and is rendered many ways (human help, shell completions, reference docs, an effect-gated agent spec) with no prose parsed](docs/diagrams/emit-once.png)
-
-<sup>Diagram source: [`docs/diagrams/emit-once.mmd`](docs/diagrams/emit-once.mmd),
-pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
 ## Case study
 
