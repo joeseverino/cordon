@@ -168,6 +168,21 @@ on a command with no `effect`).
 not a git repo) — **fail-soft** either way. Zero config still runs every universal
 invariant.
 
+## The report (`.cordon-checks-report.md`)
+
+The human render of the same `results` the `--json` verdict derives from — a
+whole-picture **status table** (every check, not just failures, so a *skip* is
+never mistaken for a *pass*), then each failure's `fix` + `rerun` + the captured
+output folded in a `<details>`, then a provenance footer. Markdown, so a CI step
+(`cat … >> "$GITHUB_STEP_SUMMARY"`) renders it inline in the run summary.
+
+It is written **on failure** by default, so a green local run leaves no file
+behind. `--report` writes it even when green (the always-there record), and a CI
+run (the `CI` env) turns that on automatically — so the summary is always there in
+CI but never clutters a local green run. It is **gitignored, never committed**.
+(The `--json` `report` field stays the *failure* pointer: the path on failure,
+`null` on a green run.)
+
 ## Per-repo configuration
 
 Optional `cordon.checks.json` at the repo root. Most keys are a check id (handed
