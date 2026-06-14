@@ -48,6 +48,12 @@ JSON, generated documentation, shell completion, and command-explorer output.
 Writing the case study was also used to gather feedback and refactor the
 implementation; all six identified improvements were fixed and verified.
 
+![The diagram tool in the tools command-surface explorer — one Cordon contract rendered as a navigable two-pane TUI, each command showing its effect chip](docs/images/diagram-command-explorer.png)
+
+<sup>"Render many" made concrete: a consumer (`tools`) rendering one Cordon
+contract as a navigable command-surface explorer — effect chips and all.
+Full walkthrough in the [case study](docs/DIAGRAM-CASE-STUDY.md).</sup>
+
 ## The effect ladder
 
 ```
