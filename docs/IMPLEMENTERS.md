@@ -25,7 +25,9 @@ Notes that trip people up:
   names. Don't leak runtime-specific fields (a real bug we've hit: argparse's
   `type`/`default` are not in the contract — drop them).
 - **`network` / `interactive` are emitted only when `true`** (they're `const:
-  true`), to keep the document lean.
+  true`), to keep the document lean. `network` describes the requested
+  operation reaching a remote system, not dependency installation or a
+  package-manager cache miss.
 - **Options are always `required: false`** in the contract; model requiredness
   only on positionals. (The schema pins `option.required` to `false`.)
 - **`paras` is one logical paragraph per array entry, unwrapped** — never a
@@ -38,9 +40,26 @@ Notes that trip people up:
 
 `effect` is the signal a consumer risk-gates on. Declare it wherever you declare
 the command, on the ladder `read → local_write → vault_write → remote_write →
-deploy`. Tag `network` when it reaches off-box, `interactive` when it blocks on a
-TTY. If you can't say what a command does to the world, you can't safely let an
-agent run it — so make this non-optional in your emitter.
+deploy`. Tag `network` when the requested operation reaches off-box,
+`interactive` when it blocks on a TTY. If you can't say what a command does to
+the world, you can't safely let an agent run it — so make this non-optional in
+your emitter.
+
+## Leaf-tool invocation
+
+Cordon describes a surface; it does not prescribe what a bare invocation does.
+An emitter may show help, run with defaults, or report a usage error. The
+emitter must keep that behavior consistent with required positionals and its
+human help. The reference Bash emitter used by `tools` shows the main help screen
+when a leaf tool is invoked with no arguments.
+
+## Runtime and dependency metadata
+
+Schema v4 has no structured dependency field. Pin versions in the
+implementation and describe important runtime requirements in existing prose or
+implementation documentation. Do not add an ad hoc key: v4 uses
+`additionalProperties: false`, so even an optional field would break existing
+validators. Structured dependency metadata requires a future schema version.
 
 ## The runtime gate
 

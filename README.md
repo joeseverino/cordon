@@ -11,6 +11,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
+- **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 
 ---
 
@@ -38,6 +39,14 @@ Two ideas, working together:
 <sup>Diagram source: [`docs/diagrams/emit-once.mmd`](docs/diagrams/emit-once.mmd),
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
+## Case study
+
+See [**Adding the `diagram` tool with Cordon**](docs/DIAGRAM-CASE-STUDY.md)
+for an end-to-end implementation: one declaration producing help, validated
+JSON, generated documentation, shell completion, and command-explorer output.
+Writing the case study was also used to gather feedback and refactor the
+implementation; all six identified improvements were fixed and verified.
+
 ## The effect ladder
 
 ```
@@ -54,8 +63,10 @@ read  <  local_write  <  vault_write  <  remote_write  <  deploy
 
 Plus two optional boolean tags, emitted only when `true`:
 
-- **`network`** — touches a remote / API / SSH (not derivable from the class: a
-  `read` can be networked, a `local_write` can be offline).
+- **`network`** — the requested operation touches a remote / API / SSH. A
+  dependency download or package-manager cache miss does not make an otherwise
+  local operation networked. This is not derivable from the class: a `read` can
+  be networked, while a `local_write` can remain entirely local.
 - **`interactive`** — blocks on a TTY (a prompt, `ssh -t`, a full-screen UI).
 
 **The gate principle.** A consumer is expected to risk-gate on `effect` — e.g.
