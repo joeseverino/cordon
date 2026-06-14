@@ -12,6 +12,15 @@ Cordon versions on two axes:
 ## [Unreleased]
 
 ### Changed
+- **Checks report polish.** `.cordon-checks-report.md` gains a whole-picture
+  **status table** (every check — pass/fail/skip — with its effect and, for a
+  skip, *why*; so a skip is never mistaken for a pass), each failure's output
+  folded in a `<details>`, and a provenance footer linking cordon + the author.
+  It now writes **on failure** by default (a green local run leaves no file
+  behind), with `--report` to force it and the `CI` env to enable it
+  automatically — so the run summary is always there in CI without cluttering a
+  local green run. Both CI workflows surface it to the run summary. The report
+  and the `--json` verdict are two renders of one `results` source.
 - `docs/EMITTERS.md` links each registry row to its live emitter repo and key
   implementation file, so a newcomer can jump straight to reference
   implementations.

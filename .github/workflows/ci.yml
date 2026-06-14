@@ -21,13 +21,11 @@ jobs:
         run: npm test
       # cordon's checks engine over cordon — including the dogfooded idempotence
       # check that fails if checks/config.schema.json has drifted from its source
-      # (the per-check configSchema declarations). On failure the actionable
-      # report (one row per failure, fix + rerun) is surfaced in the run summary;
-      # the same verdict is available as --json for an agent.
+      # (the per-check configSchema declarations). The run report (the
+      # whole-picture status table, green or red) is always surfaced in the run
+      # summary; the same verdict is available as --json for an agent.
       - name: Checks (dogfood, guards the derived config schema)
         run: |
-          node checks/run.mjs --root "$PWD" || {
-            status=$?
-            [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
-            exit $status
-          }
+          node checks/run.mjs --root "$PWD"; status=$?
+          [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
