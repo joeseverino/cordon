@@ -1,10 +1,62 @@
-# node_modules is a symlink to node_modules.nosync. The `.nosync` suffix keeps
-# iCloud from syncing the dependency tree; we commit the lockfile, not the tree.
+# ─────────────────────────────────────────────────────────────────────────────
+# cordon canonical .gitignore — kept in sync across repos (cordon,
+# cordon-starter, …). One shared body, copied verbatim; no per-repo divergence.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / agents
+.vscode/
+.idea/
+*.swp
+.claude/
+.gemini/
+.obsidian/
+
+# Node deps — node_modules is a symlink to node_modules.nosync; the `.nosync`
+# suffix tells iCloud Drive never to sync the dependency tree (no eviction, no
+# conflict copies, no corrupted installs). Commit the lockfile, not the tree.
 node_modules
 node_modules.*
 node_modules [0-9]*
 # Holding dir for manually-quarantined iCloud node_modules conflict copies.
 node_modules_conflict_tmp/
 
+# Environment / secrets — keep the .example templates (mirrors the
+# repository-policy check, which exempts *.example).
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Build output
+/dist*
+/build/
+
+# Logs
 *.log
-.DS_Store
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.logs/
+
+# Backups
+*.bak
+*.bak.*
+
+# Generated reports — never committed.
+.cordon-checks-report.md
+
+# A repo that validates against cordon checks it out here for CI; inert in
+# cordon itself. Never committed.
+/.cordon/
+
+# iCloud Drive conflict copies — this tree lives in iCloud Drive, which appends
+# " 2", " 3", … to files/dirs it thinks conflict (this is what ate a
+# node_modules symlink mid-session). Never commit them.
+* [0-9]
+* [0-9].*
