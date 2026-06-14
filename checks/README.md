@@ -28,6 +28,21 @@ checks/
 If a check needs to know what *your* code does, it's a test, not a check. Keep it
 home and register it into your own gate; don't push it up to cordon.
 
+## Gates (and why there are no phases)
+
+Each check declares the `gates` it belongs to, and a gate is just
+`checksFor(name)` over the registry — so **completeness is structural**: register
+a check and every gate that claims it runs it, with no second edit. cordon ships
+one gate, `check` (what `checks/run.mjs` runs); a consumer is free to define its
+own named gates (a fast local gate, a full release gate) by filtering on its own
+gate names over the same registry.
+
+**Phases** — ordering checks around a build, skipping post-build work when the
+build fails — are a *consumer* orchestration concern. cordon builds nothing, so
+it imposes no phase model and the verdict schema carries none. The one shipped
+check that runs a command, `idempotence`, simply declares `effect: local_write`
+so a consumer can order or gate it as it likes.
+
 ## Run it
 
 ```sh

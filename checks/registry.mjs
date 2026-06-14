@@ -13,9 +13,11 @@
 // and so stays in that repo), a check asserts a general invariant and is portable
 // — that's why it lives here.
 import repositoryPolicy from './lib/repository-policy.mjs';
+import idempotence from './lib/idempotence.mjs';
 
 export const CHECKS = [
   repositoryPolicy,
+  idempotence,
 ];
 
 export const checkById = (id) => CHECKS.find((c) => c.id === id);
