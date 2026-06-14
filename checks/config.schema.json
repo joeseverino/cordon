@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/joeseverino/cordon/main/checks/config.schema.json",
+  "title": "cordon.checks.json",
+  "description": "Per-repo configuration for cordon's portable checks. Each top-level key is a check id; omit a key to use that check's defaults. Run `node checks/run.mjs --list` to see every check.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this schema for editor autocomplete and validation."
+    },
+    "repository-policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Repo hygiene: no tracked secrets/build output/conflict copies, unambiguous modules, pinned Actions. Universal rules need no config; the keys below tune the stack-specific ones.",
+      "properties": {
+        "forbiddenDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "dist",
+            "playwright-report",
+            "test-results"
+          ],
+          "description": "Directories whose tracked contents are always build output, never source."
+        },
+        "conflictScanDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra trees to walk for untracked iCloud conflict copies (\"name 2.ext\"). Tracked copies are caught regardless; [] walks nothing."
+        },
+        "checkNvmrc": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a .nvmrc is present, require the running Node major.minor to match it."
+        },
+        "checkLockfile": {
+          "type": "boolean",
+          "default": true,
+          "description": "When package.json and package-lock.json are both present, require their name/version/dependencies to agree."
+        },
+        "allowTaggedActions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Accept tag/branch GitHub Action pins (e.g. @v5). Set false to enforce full commit-SHA pins (the hardened house policy)."
+        }
+      }
+    },
+    "idempotence": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Run a build/verify command and assert it leaves the worktree byte-identical. Off until you set a command.",
+      "properties": {
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Shell command whose run must not change tracked or untracked files, e.g. \"npm run build\". null skips the check — set this to turn it on."
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600000,
+          "description": "Kill the command after this many milliseconds rather than wedge the gate."
+        }
+      }
+    }
+  }
+}

@@ -16,3 +16,8 @@ jobs:
       - run: npm ci
       - name: Validate fixtures against the schema
         run: node conformance/validate.mjs
+      # Runs cordon's own checks over cordon — including the dogfooded
+      # idempotence check that fails if checks/config.schema.json has drifted
+      # from its source (the per-check configSchema declarations).
+      - name: Checks (dogfood, guards the derived config schema)
+        run: npm run checks

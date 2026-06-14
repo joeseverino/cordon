@@ -14,21 +14,48 @@ import { spawnSync } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
+import { defaultsOf } from './config.mjs';
 
-const DEFAULTS = {
-  // Directories whose tracked contents are always build output / never source.
-  forbiddenDirs: ['dist', 'playwright-report', 'test-results'],
-  // Extra trees to walk for *untracked* iCloud conflict copies ("name 2.ext").
-  // Tracked conflict copies are caught regardless; default [] = walk nothing.
-  conflictScanDirs: [],
-  // Stack-specific gates — auto-skip when the file they need is absent.
-  checkNvmrc: true,
-  checkLockfile: true,
-  // Supply-chain: by default accept tag/branch action pins (e.g. @v5). Set
-  // false to enforce full commit-SHA pins (the hardened house policy) — do
-  // that once the churn settles.
-  allowTaggedActions: true,
+// The check's config seam, declared once as JSON Schema and carried on the
+// default export — see idempotence.mjs for the pattern. config-schema.mjs
+// composes it into the published `cordon.checks.json` schema; the runtime
+// DEFAULTS below derive from it, so the documented and actual default are one.
+const configSchema = {
+  type: 'object',
+  additionalProperties: false,
+  description: 'Repo hygiene: no tracked secrets/build output/conflict copies, unambiguous modules, pinned Actions. Universal rules need no config; the keys below tune the stack-specific ones.',
+  properties: {
+    forbiddenDirs: {
+      type: 'array',
+      items: { type: 'string' },
+      default: ['dist', 'playwright-report', 'test-results'],
+      description: 'Directories whose tracked contents are always build output, never source.',
+    },
+    conflictScanDirs: {
+      type: 'array',
+      items: { type: 'string' },
+      default: [],
+      description: 'Extra trees to walk for untracked iCloud conflict copies ("name 2.ext"). Tracked copies are caught regardless; [] walks nothing.',
+    },
+    checkNvmrc: {
+      type: 'boolean',
+      default: true,
+      description: 'When a .nvmrc is present, require the running Node major.minor to match it.',
+    },
+    checkLockfile: {
+      type: 'boolean',
+      default: true,
+      description: 'When package.json and package-lock.json are both present, require their name/version/dependencies to agree.',
+    },
+    allowTaggedActions: {
+      type: 'boolean',
+      default: true,
+      description: 'Accept tag/branch GitHub Action pins (e.g. @v5). Set false to enforce full commit-SHA pins (the hardened house policy).',
+    },
+  },
 };
+
+const DEFAULTS = defaultsOf(configSchema);
 
 const CONFLICT_COPY = / [0-9]+(?:\.[^/]*)?$/; // "report 2", "logo 3.png" (iCloud)
 
@@ -51,6 +78,7 @@ export default {
   name: 'Repository Policy',
   effect: 'read',
   gates: ['check'],
+  configSchema,
   fix: 'Untrack secrets/build output, remove iCloud conflict copies, pin GitHub '
     + 'Actions to a commit SHA, align the lockfile, or match .nvmrc. The detail '
     + 'lists each offending path.',

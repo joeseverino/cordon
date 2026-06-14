@@ -9,17 +9,20 @@
 //   node checks/run.mjs --only <id>     # run a single check (the rerun command)
 //   node checks/run.mjs --json          # the agent/CI contract (only stdout)
 //   node checks/run.mjs --list          # list available checks and exit
+//   node checks/run.mjs --schema        # emit the cordon.checks.json JSON Schema
 //
 // Collect-all, never short-circuit: one pass surfaces every problem. Per-repo
 // configuration is an optional `cordon.checks.json` at the repo root,
 // `{ "<check-id>": { ...config } }`, handed to each check as ctx.config — absent
-// keys fall back to the check's own defaults, so zero config still runs.
+// keys fall back to the check's own defaults, so zero config still runs. Point
+// that file's `$schema` at `--schema`'s output for editor autocomplete + AI.
 // Zero runtime dependencies: the checks are the contract, this is just the loop.
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { CHECKS, checkById, checksFor } from './registry.mjs';
+import { buildConfigSchema } from './config-schema.mjs';
 
 const C = {
   green: (s) => `\x1b[32m${s}\x1b[0m`,
@@ -48,6 +51,12 @@ if (has('-h') || has('--help')) {
 }
 if (has('--list')) {
   for (const c of CHECKS) console.log(`  ${c.id.padEnd(22)} ${c.name}`);
+  process.exit(0);
+}
+if (has('--schema')) {
+  // Byte-deterministic so the committed checks/config.schema.json can be diffed
+  // and kept fresh by the dogfooded idempotence check (cordon.checks.json).
+  console.log(JSON.stringify(buildConfigSchema(), null, 2));
   process.exit(0);
 }
 

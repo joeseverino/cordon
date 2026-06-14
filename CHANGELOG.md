@@ -17,6 +17,17 @@ Cordon versions on two axes:
   implementations.
 
 ### Added
+- **Derived `cordon.checks.json` schema** (`checks/config.schema.json`, emitted by
+  `checks/run.mjs --schema`). Each check declares its config seam once as a
+  `configSchema` fragment on its default export; `defaultsOf` (`checks/lib/config.mjs`)
+  lifts that same declaration into the check's runtime defaults, and
+  `checks/config-schema.mjs` composes the fragments over the registry into one
+  published file schema. A consuming repo points its `cordon.checks.json`
+  `$schema` at it for editor autocomplete, hover docs, and typo/type validation —
+  and an agent reads the same machine contract. Adding a knob is one edit; type,
+  docs, and default can't drift. Cordon dogfoods its own `idempotence` check
+  (`cordon.checks.json`) to fail CI if the committed schema lags the source, so
+  `npm run checks` now runs in CI alongside conformance.
 - This changelog, and a `CLAUDE.md → AGENTS.md` symlink so AGENTS.md-aware tools
   and Claude Code read the same contributor guide.
 - **Checks verdict contract** (`schema/cordon-checks-v1.json`) — the repo-level

@@ -51,6 +51,7 @@ node checks/run.mjs --root <dir>    # over another repo
 node checks/run.mjs --only <id>     # one check (this is the printed rerun line)
 node checks/run.mjs --json          # the agent/CI contract (sole stdout)
 node checks/run.mjs --list          # available checks
+node checks/run.mjs --schema        # the cordon.checks.json JSON Schema
 ```
 
 A consuming repo references this the same way it references the conformance
@@ -102,10 +103,13 @@ runs every universal rule.
 ## Per-repo configuration
 
 Optional `cordon.checks.json` at the repo root, keyed by check id; each object is
-handed to that check as `ctx.config`, merged over the check's own defaults:
+handed to that check as `ctx.config`, merged over the check's own defaults. Point
+its `$schema` at the published schema and your editor autocompletes every key,
+documents it on hover, and flags typos and wrong types as you type:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/joeseverino/cordon/main/checks/config.schema.json",
   "repository-policy": {
     "conflictScanDirs": ["src/content", "public/assets"],
     "allowTaggedActions": false
@@ -119,6 +123,22 @@ commit-SHA action pins, the hardened house policy.)
 Absent file or absent keys → defaults. This is the seam that lets one check run
 unmodified across repos: the *rule* is central, the *parameters* are local.
 
+### The config schema is derived, never hand-written
+
+A check declares its config seam **once**, as a `configSchema` JSON Schema
+fragment on its default export — and that single declaration is the source for
+both the check's runtime defaults (`defaultsOf` in [`lib/config.mjs`](lib/config.mjs))
+and its slice of the published file schema. [`config-schema.mjs`](config-schema.mjs)
+composes those fragments over the registry into one document, emitted by
+`run.mjs --schema`. So adding a knob is one edit in one file, and a field's type,
+its docs, and its default can never drift apart.
+
+The composed document is committed at [`config.schema.json`](config.schema.json)
+— the artifact the `$schema` URL serves — and cordon keeps it fresh by
+**dogfooding its own `idempotence` check**: cordon's [`cordon.checks.json`](../cordon.checks.json)
+runs the regen command, so `npm run checks` fails if the committed schema ever
+lags the source. Editor experience and drift safety from the same one feature.
+
 ## Adding a check
 
 1. Write `checks/lib/<id>.mjs` exporting `{ id, name, effect, fix, gates, run(ctx) }`.
@@ -127,7 +147,14 @@ unmodified across repos: the *rule* is central, the *parameters* are local.
    reaches off-box or needs a TTY. `run` returns `{ ok, detail }` or
    `{ skipped: true, detail }` — and never throws for a policy violation (throw
    only on a broken environment).
-2. Register it in `registry.mjs`.
+2. If the check takes config, add a `configSchema` (a JSON Schema fragment) to
+   the same default export and derive its defaults with `defaultsOf(configSchema)`
+   — one declaration feeds the runtime defaults *and* the published file schema.
+3. Register it in `registry.mjs`.
+
+That's the whole scaling story: the new check's config knobs light up in
+`--schema`, in every editor pointed at the published file, and in `--list`/`--json`
+with no second edit — completeness stays structural.
 
 Graduate a check from a product repo only when it passes the boundary test
 above: a general invariant, with at most a small declarative config seam. See
