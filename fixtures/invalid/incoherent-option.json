@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "schema_version": 4,
+  "name": "bad",
+  "description": "The option metadata disagrees with itself.",
+  "group": "X",
+  "order": 1,
+  "effect": "read",
+  "global_options": [
+    {
+      "name": "--output",
+      "positional": false,
+      "required": false,
+      "help": "Output path",
+      "flags": ["-o"],
+      "takes_value": false,
+      "metavar": "PATH"
+    }
+  ],
+  "positionals": [],
+  "paras": [],
+  "examples": [],
+  "commands": []
+}

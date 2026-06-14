@@ -10,6 +10,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
+- **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v1.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 
@@ -47,6 +48,12 @@ JSON, generated documentation, shell completion, and command-explorer output.
 Writing the case study was also used to gather feedback and refactor the
 implementation; all six identified improvements were fixed and verified.
 
+![The diagram tool in the tools command-surface explorer — one Cordon contract rendered as a navigable two-pane TUI, each command showing its effect chip](docs/images/diagram-command-explorer.png)
+
+<sup>"Render many" made concrete: a consumer (`tools`) rendering one Cordon
+contract as a navigable command-surface explorer — effect chips and all.
+Full walkthrough in the [case study](docs/DIAGRAM-CASE-STUDY.md).</sup>
+
 ## The effect ladder
 
 ```
@@ -74,7 +81,7 @@ confirm before a `deploy`, fail closed when non-interactive. The signal lives in
 the contract; the policy lives in the consumer. (Reference gate:
 [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md#the-runtime-gate).)
 
-![The effect ladder and gate: every command declares one effect (plus optional network / interactive, default read) on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
+![The effect ladder and gate: every command explicitly declares one effect plus optional network and interactive tags on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
 
 <sup>Diagram source: [`docs/diagrams/effect-ladder.mmd`](docs/diagrams/effect-ladder.mmd),
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
@@ -105,8 +112,9 @@ See [`schema/cordon-v4.json`](schema/cordon-v4.json) for the full definition of
 
 ## Conformance
 
-An emitter conforms when its output validates against the schema and behaves the
-way the fixtures specify:
+An emitter conforms when its output validates against the schema, satisfies the
+cross-field rules in `conformance/semantics.mjs`, and behaves the way the
+fixtures specify:
 
 ```bash
 npm ci
@@ -118,6 +126,25 @@ some-tool --describe | node conformance/validate.mjs -   # validate stdin
 `fixtures/valid/` must pass; `fixtures/invalid/` must be rejected, each isolating
 one rule. They are the contract's executable definition — implement against
 them in any language.
+
+## The checks verdict
+
+Cordon's second contract — the repo-level sibling of the command surface. Where
+`--describe` answers *what does running this command cost?*, the verdict answers
+*is this repo shippable, and what fixes each failure?* — the machine-readable
+output of a portable checks runner ([`checks/`](checks/)).
+
+- **Its own schema.** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json),
+  independently versioned (`schema_version: 1`); `cordon-v4.json` stays frozen.
+- **Same harness.** A verdict validates through `conformance/validate.mjs`, which
+  picks the schema by shape — `commands[]` → surface, `checks[]` → verdict.
+- **Same vocabulary.** Every check carries an `effect` on the ladder above, so an
+  agent reads the cost of *producing* a verdict in the same terms as a command.
+- **Acts, not just reports.** A failed check must carry its `fix` and exact
+  `rerun`, so the verdict is something an agent acts on, not merely parses.
+
+Depth — the checks-vs-tests boundary, per-repo config, and how to add a check —
+lives in [`checks/README.md`](checks/README.md).
 
 ## Consuming cordon from another repo
 
@@ -133,8 +160,9 @@ node "$CORDON_HOME/conformance/validate.mjs" path/to/contract.json   # exit 0 va
 drifts silently, and the published `https://jseverino.com/schemas/cordon-v4.json`
 is bot-gated (200 in a browser, 403 from CI / datacenter IPs). Point a
 `$CORDON_HOME`-style variable at a checkout of this repo — a local clone, or a CI
-checkout of the public repo — and call the validator from there. The schema and
-validator are then always cordon's real, current files.
+checkout of the public repo — and call the validator from there. You then
+validate against the exact, byte-identical schema for the version your contract
+pins (the canonical home is the live `$id` URL; this repo is its mirror).
 
 ## Writing an emitter
 

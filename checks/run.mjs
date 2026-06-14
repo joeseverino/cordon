@@ -26,7 +26,13 @@ const C = {
   red: (s) => `\x1b[31m${s}\x1b[0m`,
   yellow: (s) => `\x1b[33m${s}\x1b[0m`,
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
+  dim: (s) => `\x1b[2m${s}\x1b[0m`,
 };
+
+// The check's own blast radius (cordon's effect ladder), plus the off-box /
+// TTY tags — the cost of producing the verdict, in the same vocabulary an agent
+// already reads off a command's --describe.
+const effectChip = (r) => C.dim(`[${[r.effect, r.network && '+network', r.interactive && '+interactive'].filter(Boolean).join(' ')}]`);
 
 const args = process.argv.slice(2);
 const has = (flag) => args.includes(flag);
@@ -85,7 +91,11 @@ function runOne(check) {
     result = { ok: false, detail: `check threw: ${e.message}` };
   }
   const status = result.skipped ? 'skip' : result.ok ? 'pass' : 'fail';
-  return { id: check.id, name: check.name, status, durationMs: Date.now() - start, detail: result.detail ?? '', fix: check.fix };
+  return {
+    id: check.id, name: check.name, status, durationMs: Date.now() - start,
+    detail: result.detail ?? '', fix: check.fix,
+    effect: check.effect, network: check.network, interactive: check.interactive,
+  };
 }
 
 const results = selected.map(runOne);
@@ -94,6 +104,7 @@ const failed = results.filter((r) => r.status === 'fail');
 if (jsonMode) {
   console.log(JSON.stringify({
     ok: failed.length === 0,
+    schema_version: 1,
     failed: failed.map((r) => r.id),
     report: failed.length ? path.relative(root, reportPath) : null,
     checks: results.map((r) => ({
@@ -101,6 +112,9 @@ if (jsonMode) {
       name: r.name,
       status: r.status,
       durationMs: r.durationMs,
+      effect: r.effect,
+      ...(r.network ? { network: true } : {}),
+      ...(r.interactive ? { interactive: true } : {}),
       ...(r.status === 'fail' ? { fix: r.fix, rerun: rerunFor(r.id) } : {}),
     })),
   }, null, 2));
@@ -108,7 +122,7 @@ if (jsonMode) {
   say(C.bold(`cordon checks · ${root}\n`));
   for (const r of results) {
     const tag = r.status === 'skip' ? C.yellow('[SKIP]') : r.status === 'pass' ? C.green('[PASS]') : C.red('[FAIL]');
-    say(`  ${tag} ${r.name} (${r.durationMs}ms)`);
+    say(`  ${tag} ${r.name} ${effectChip(r)} (${r.durationMs}ms)`);
     if (r.detail && r.status !== 'pass') say(r.detail.split('\n').map((l) => `         ${l}`).join('\n'));
   }
   say('');

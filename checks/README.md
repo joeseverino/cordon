@@ -12,7 +12,7 @@ drift, and an agent can read the verdict before it acts.
 checks/
 ├── run.mjs            the runner — collect-all, human + --json, writes a report
 ├── registry.mjs       the inventory: which checks exist (data + module refs)
-└── lib/<id>.mjs       one check each: { id, name, fix, gates, run(ctx) }
+└── lib/<id>.mjs       one check each: { id, name, effect, fix, gates, run(ctx) }
 ```
 
 ## checks vs tests — the boundary
@@ -27,6 +27,21 @@ checks/
 
 If a check needs to know what *your* code does, it's a test, not a check. Keep it
 home and register it into your own gate; don't push it up to cordon.
+
+## Gates (and why there are no phases)
+
+Each check declares the `gates` it belongs to, and a gate is just
+`checksFor(name)` over the registry — so **completeness is structural**: register
+a check and every gate that claims it runs it, with no second edit. cordon ships
+one gate, `check` (what `checks/run.mjs` runs); a consumer is free to define its
+own named gates (a fast local gate, a full release gate) by filtering on its own
+gate names over the same registry.
+
+**Phases** — ordering checks around a build, skipping post-build work when the
+build fails — are a *consumer* orchestration concern. cordon builds nothing, so
+it imposes no phase model and the verdict schema carries none. The one shipped
+check that runs a command, `idempotence`, simply declares `effect: local_write`
+so a consumer can order or gate it as it likes.
 
 ## Run it
 
@@ -54,14 +69,30 @@ own `fix` and the exact `rerun` command.
 ```json
 {
   "ok": false,
+  "schema_version": 1,
   "failed": ["repository-policy"],
   "report": ".cordon-checks-report.md",
   "checks": [
     { "id": "repository-policy", "name": "Repository Policy", "status": "fail",
-      "durationMs": 25, "fix": "…", "rerun": "node checks/run.mjs --only repository-policy" }
+      "durationMs": 25, "effect": "read", "fix": "…", "rerun": "node checks/run.mjs --only repository-policy" }
   ]
 }
 ```
+
+This verdict is a **versioned contract** — [`schema/cordon-checks-v1.json`](../schema/cordon-checks-v1.json),
+the repo-level sibling of the command-surface schema — and `checks/run.mjs --json`
+is its reference emitter, validated by [`conformance/validate.mjs`](../conformance/validate.mjs)
+(the harness picks the schema by shape: a verdict has `checks[]`). The schema
+enforces the two signals an agent needs: a `fail` check **must** carry `fix` +
+`rerun`, and every check carries its own `effect`.
+
+`effect` is cordon's blast-radius ladder applied to the check itself — the cost
+of *producing* the verdict, in the same vocabulary a command's `--describe` uses.
+A `read` check (e.g. `repository-policy`) is safe to run anywhere; a check that
+reaches off-box rides `network: true` (and `interactive: true` if it blocks on a
+TTY), emitted only when true, exactly as on the command surface. So one agent
+reads both "what does this command cost?" and "what does running this check
+cost?" in one language.
 
 `status` is `pass | fail | skip`. A check returns `skip` when the thing it
 inspects is absent (no `.nvmrc`, not a git repo) — **fail-soft**, exactly like
@@ -90,9 +121,12 @@ unmodified across repos: the *rule* is central, the *parameters* are local.
 
 ## Adding a check
 
-1. Write `checks/lib/<id>.mjs` exporting `{ id, name, fix, gates, run(ctx) }`.
-   `run` returns `{ ok, detail }` or `{ skipped: true, detail }` — and never
-   throws for a policy violation (throw only on a broken environment).
+1. Write `checks/lib/<id>.mjs` exporting `{ id, name, effect, fix, gates, run(ctx) }`.
+   `effect` is the check's blast radius on cordon's ladder — `read` for a pure
+   inspection of the tree; add `network: true` / `interactive: true` if the check
+   reaches off-box or needs a TTY. `run` returns `{ ok, detail }` or
+   `{ skipped: true, detail }` — and never throws for a policy violation (throw
+   only on a broken environment).
 2. Register it in `registry.mjs`.
 
 Graduate a check from a product repo only when it passes the boundary test

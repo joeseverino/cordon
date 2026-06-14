@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "failed": [],
+  "report": null,
+  "checks": [
+    {
+      "id": "repository-policy",
+      "name": "Repository Policy",
+      "status": "pass",
+      "durationMs": 5,
+      "effect": "mutate"
+    }
+  ]
+}

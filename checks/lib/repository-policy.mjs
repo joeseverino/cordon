@@ -49,6 +49,7 @@ const exists = (root, file) => fs.existsSync(path.join(root, file));
 export default {
   id: 'repository-policy',
   name: 'Repository Policy',
+  effect: 'read',
   gates: ['check'],
   fix: 'Untrack secrets/build output, remove iCloud conflict copies, pin GitHub '
     + 'Actions to a commit SHA, align the lockfile, or match .nvmrc. The detail '

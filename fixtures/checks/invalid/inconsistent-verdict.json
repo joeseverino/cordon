@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "failed": [],
+  "report": null,
+  "checks": [
+    {
+      "id": "policy",
+      "name": "Repository policy",
+      "status": "fail",
+      "durationMs": 4,
+      "effect": "read",
+      "fix": "Fix the policy violation.",
+      "rerun": "node checks/run.mjs --only policy"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jseverino.com/schemas/cordon-checks-v1.json",
+  "$comment": "Canonical home: https://jseverino.com/schemas/cordon-checks-v1.json (the value of $id above) — the live, immutable URL this schema_version pins. The copy in the cordon repo at schema/cordon-checks-v1.json is the byte-identical development mirror; reference it for validation. The repo-level sibling of cordon-v4.json: where the command-surface contract answers 'what does running this command cost?', this answers 'is this repo shippable, and what fixes each failure?'. checks/run.mjs --json is the reference emitter.",
+  "title": "Cordon checks verdict (schema_version 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "schema_version",
+    "failed",
+    "report",
+    "checks"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "$comment": "The gate: true iff no check failed. Unlike the command-surface contract, this is a real verdict, not a const sanity marker."
+    },
+    "schema_version": { "const": 1 },
+    "failed": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "$comment": "ids of the failed checks — the same ids that appear in checks[].id with status 'fail'."
+    },
+    "report": {
+      "type": ["string", "null"],
+      "$comment": "Relative path to the written failure report, or null when ok."
+    },
+    "checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    }
+  },
+  "$defs": {
+    "effect": {
+      "enum": ["read", "local_write", "vault_write", "remote_write", "deploy"]
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status", "durationMs", "effect"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["pass", "fail", "skip"] },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "The one runtime field — a verdict is a report, not a static description, so wall-clock cost is legitimately part of it. Everything else is deterministic: checks ride in registry order, failed[] is derived."
+        },
+        "effect": {
+          "$ref": "#/$defs/effect",
+          "$comment": "The check's own blast radius on cordon's ladder — the cost of producing this row, in the same vocabulary a command's --describe uses."
+        },
+        "network": { "const": true },
+        "interactive": { "const": true },
+        "fix": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Machine-readable remediation. The verdict-side mirror of effect: effect is the risk read before acting, fix is the remediation read after a failure. Required on a failed check."
+        },
+        "rerun": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "The exact, deterministic command that reproduces this one check standalone. Required on a failed check."
+        }
+      },
+      "if": {
+        "properties": { "status": { "const": "fail" } },
+        "required": ["status"]
+      },
+      "then": {
+        "$comment": "A failed check must carry its remediation: machine-readable fix + the deterministic command that reproduces it. The property shapes are defined on the check object above; they are restated here only so the requirement is self-contained under strict validation.",
+        "required": ["fix", "rerun"],
+        "properties": {
+          "fix": { "type": "string", "minLength": 1 },
+          "rerun": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "ok": false,
+  "schema_version": 1,
+  "failed": ["repository-policy", "deploy-verify"],
+  "report": ".cordon-checks-report.md",
+  "checks": [
+    {
+      "id": "repository-policy",
+      "name": "Repository Policy",
+      "status": "fail",
+      "durationMs": 31,
+      "effect": "read",
+      "fix": "Untrack secrets/build output, remove iCloud conflict copies, or pin GitHub Actions to a commit SHA. The detail lists each offending path.",
+      "rerun": "node checks/run.mjs --only repository-policy"
+    },
+    {
+      "id": "browser-tests",
+      "name": "Playwright Browser Tests",
+      "status": "skip",
+      "durationMs": 0,
+      "effect": "local_write"
+    },
+    {
+      "id": "deploy-verify",
+      "name": "Live Deploy Verification",
+      "status": "fail",
+      "durationMs": 4120,
+      "effect": "remote_write",
+      "network": true,
+      "interactive": true,
+      "fix": "Production headers are missing the CSP nonce; redeploy after fixing the edge middleware.",
+      "rerun": "node checks/run.mjs --only deploy-verify"
+    }
+  ]
+}
