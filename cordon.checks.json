@@ -2,5 +2,15 @@
   "$schema": "./checks/config.schema.json",
   "idempotence": {
     "command": "node checks/run.mjs --schema > checks/config.schema.json"
-  }
+  },
+  "commands": [
+    {
+      "id": "py-emitter",
+      "name": "Python reference emitter selftest",
+      "effect": "read",
+      "requires": ["python3"],
+      "exec": { "cmd": "python3", "args": ["emitters/python/selftest.py"] },
+      "fix": "Run `python3 emitters/python/selftest.py` and fix the reported divergence; if the contract shape changed legitimately, update the emitter and fixtures together."
+    }
+  ]
 }

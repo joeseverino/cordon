@@ -3,10 +3,22 @@
 Implementations that produce Cordon-conformant contracts. Each validates against
 [`schema/cordon-v4.json`](../schema/cordon-v4.json).
 
+## Reference emitters (in this repo)
+
+Drop-in, dependency-free emitters you reference from a cordon checkout
+(`$CORDON_HOME`) rather than reimplement. Reference, don't vendor — they track
+the schema in the same repo.
+
+| Emitter | Language | Shape | How |
+|---|---|---|---|
+| [`emitters/python`](../emitters/python/) (`cordon-emit`) | Python | **introspect** | One line — `describe_main(parser, group=…, order=…)` — projects an existing `argparse` parser to the contract; `set_effect()` declares each command's blast radius. Zero-touch path: `python -m cordon_emit module:factory`. Proven byte-identical to the bash leaf fixture by its selftest. |
+
+## In-the-wild emitters
+
 | Emitter | Language | Shape | How |
 |---|---|---|---|
 | [`severino-tools`](https://github.com/joeseverino/tools) | Bash | **declare** | A `describe_spec()` DSL (`desc_cmd`, `desc_opt`, `desc_effect`, …) rendered to both `-h` text and the JSON contract by two pure renderers. Also hosts the reference runtime deploy gate. Implementation notes: [`docs/command-surface-contract.md`](https://github.com/joeseverino/tools/blob/main/docs/command-surface-contract.md). |
-| [`severino-vault-mcp`](https://github.com/joeseverino/severino-vault-mcp) | Python | **introspect** | Walks its `argparse` parser and projects it to the contract — `--help` made machine-readable, so it can't drift from the parser. Emitter: [`cli_introspect.py`](https://github.com/joeseverino/severino-vault-mcp/blob/main/src/severino_vault_mcp/cli_introspect.py). |
+| [`severino-vault-mcp`](https://github.com/joeseverino/severino-vault-mcp) | Python | **introspect** | Walks its `argparse` parser and projects it to the contract — `--help` made machine-readable, so it can't drift from the parser. Emitter: [`cli_introspect.py`](https://github.com/joeseverino/severino-vault-mcp/blob/main/src/severino_vault_mcp/cli_introspect.py) (candidate to converge onto the `emitters/python` reference). |
 
 Adding one? Implement against the [fixtures](../fixtures/), validate your
 `--describe` output, and open a PR adding a row here.
