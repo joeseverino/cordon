@@ -28,9 +28,11 @@ That's the entire CI surface of a consuming repo. The required status check is
 2. sets up Node (the engine), and — only when the repo has a `pyproject.toml` —
    uv plus a dependency sync;
 3. installs shellcheck + ripgrep for the checks that need them;
-4. runs the checks engine over the repo's **own `cordon.checks.json`**, folding
-   its commands with cordon's built-in repo invariants into one verdict, and
-   surfaces the report.
+4. runs the repo's **own `scripts/check.sh --ci`** — the same gate you run
+   locally and pre-push, so CI can't drift from it. A repo without a `check.sh`
+   falls back to the checks engine directly over its `cordon.checks.json`. Either
+   way it folds the repo's commands with cordon's built-in invariants into one
+   verdict and surfaces the report.
 
 ## The only per-repo file: `cordon.checks.json`
 

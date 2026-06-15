@@ -15,7 +15,7 @@ pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
-- **Checks verdict:** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v1.json` — the repo-level sibling contract (*is this repo shippable?*)
+- **Checks verdict:** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v2.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 - **Starter template:** [`cordon-starter`](https://github.com/joeseverino/cordon-starter) · a repo scaffold with the contract, CI gate, and governance already wired
@@ -135,8 +135,8 @@ Cordon's second contract — the repo-level sibling of the command surface. Wher
 *is this repo shippable, and what fixes each failure?* — the machine-readable
 output of a portable checks runner ([`checks/`](checks/)).
 
-- **Its own schema.** [`schema/cordon-checks-v1.json`](schema/cordon-checks-v1.json),
-  independently versioned (`schema_version: 1`); `cordon-v4.json` stays frozen.
+- **Its own schema.** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json),
+  independently versioned (`schema_version: 2`); `cordon-v4.json` stays frozen.
 - **Same harness.** A verdict validates through `conformance/validate.mjs`, which
   picks the schema by shape — `commands[]` → surface, `checks[]` → verdict.
 - **Same vocabulary.** Every check carries an `effect` on the ladder above, so an
