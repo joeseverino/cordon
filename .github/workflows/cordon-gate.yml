@@ -1,0 +1,76 @@
+# The one cordon gate — reused by every Severino repo.
+#
+# This is the single place CI logic lives. A repo runs the whole standard gate by
+# calling this workflow in three lines (see docs/REUSABLE-GATE.md):
+#
+#   jobs:
+#     cordon:
+#       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@main
+#
+# It checks the caller out, brings cordon's engine + schema along, auto-detects
+# the stack (Python → uv; everything gets node + shellcheck + ripgrep), then runs
+# cordon's checks engine over the caller's own cordon.checks.json — the repo's
+# commands (ruff, pytest, …) declared as data — folded with cordon's built-in
+# repo invariants into one verdict. Change the gate for every repo by editing
+# this file; change a repo's commands by editing its cordon.checks.json. Nothing
+# is copied per repo, and every repo reports the same status check: `cordon / gate`.
+name: cordon gate
+
+on:
+  workflow_call:
+    inputs:
+      cordon-ref:
+        description: "Which cordon ref provides the engine + schema (default: main)."
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the calling repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Check out cordon (engine + schema — never vendored)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: joeseverino/cordon
+          ref: ${{ inputs.cordon-ref }}
+          path: .cordon
+
+      - name: Set up Node (the engine runs on it)
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24"
+
+      - name: Install cordon's engine deps
+        run: npm --prefix .cordon ci
+
+      - name: Set up uv (Python repos only)
+        if: ${{ hashFiles('pyproject.toml') != '' }}
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Sync Python deps (Python repos only)
+        if: ${{ hashFiles('pyproject.toml') != '' }}
+        run: uv sync --extra dev || uv sync || true
+
+      - name: Provision common check tooling
+        run: |
+          # shellcheck (shell repos) + ripgrep (some test suites shell out to it).
+          # `|| true`: a broken preinstalled third-party apt repo must not fail the
+          # gate — these come from the always-present Ubuntu archive.
+          sudo apt-get update -qq || true
+          sudo apt-get install -y shellcheck ripgrep || true
+
+      - name: Run cordon checks
+        env:
+          CORDON_HOME: ${{ github.workspace }}/.cordon
+        run: |
+          node "$CORDON_HOME/checks/run.mjs" --root "$PWD"; status=$?
+          [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
