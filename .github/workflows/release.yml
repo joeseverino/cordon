@@ -1,0 +1,33 @@
+# release — the release ceremony, automated by release-please.
+#
+# On every push to main (i.e. every merged PR), release-please reads the
+# Conventional Commit titles since the last release and maintains ONE standing
+# "release PR" — `chore(main): release X.Y.Z` — that bumps package.json and
+# regenerates the CHANGELOG. Nothing is released until you merge that PR;
+# merging it cuts the `vX.Y.Z` tag and the GitHub Release. The version is
+# computed from commit types (fix→patch, feat→minor, feat!/BREAKING→major);
+# override it with a `Release-As: X.Y.Z` line in a commit if needed.
+#
+# Single-package mode: the version lives in package.json, so there are no extra
+# config files — this workflow is the whole setup.
+#
+# NOTE: the release PR is opened with the default GITHUB_TOKEN, so it does not
+# itself re-trigger the `conformance` (pull_request) workflow. Review it by hand,
+# or swap `token:` for a fine-grained PAT/App token to make the gate run on it.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        with:
+          release-type: node
