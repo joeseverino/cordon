@@ -33,6 +33,7 @@ const CORDON_ROOT = path.resolve(HERE, '..');
 const VALIDATE = path.join(CORDON_ROOT, 'conformance', 'validate.mjs');
 const SHELLCHECK_SH = path.join(HERE, 'lib', 'shellcheck-repo.sh');
 const VERSION_ALIGN = path.join(HERE, 'lib', 'version-align.mjs');
+const PACKAGE_SMOKE = path.join(HERE, 'lib', 'package-smoke.mjs');
 
 export const CATALOG = [
   // ── Python (uv) ─ pyproject.toml + uv.lock present, run through uv ──────────
@@ -90,6 +91,19 @@ export const CATALOG = [
     requires: ['file:pyproject.toml', 'node'],
     exec: { cmd: 'node', args: [VERSION_ALIGN] },
     fix: 'Align pyproject [project].version with the package __version__ (e.g. src/<pkg>/__init__.py).',
+  },
+  // Build the wheel and import it from an isolated env — catches "imports from
+  // source, broken once installed" (a module missing from the wheel, a bad build
+  // backend) that the source-tree pytest never sees. No-ops where there's no
+  // [build-system] or no determinable module, so it only fails on a real
+  // packaging error. Replaces a per-repo "smoke test the installed package" CI
+  // step with one auto-detected check. (requires uv.lock too, so it lights up
+  // only in a real uv package, not any stray pyproject.)
+  {
+    id: 'package-smoke', name: 'Built package imports', effect: 'read',
+    requires: ['file:pyproject.toml', 'file:uv.lock', 'uv', 'node'],
+    exec: { cmd: 'node', args: [PACKAGE_SMOKE] },
+    fix: 'The built wheel failed to import. Check the build backend config and that the package modules ship in the wheel (e.g. [tool.hatch.build]/packages, MANIFEST), then `uv run --no-project --with . python -c "import <pkg>"`.',
   },
 
   // ── Django ─ manage.py present ──────────────────────────────────────────────
