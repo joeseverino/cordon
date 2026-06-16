@@ -8,7 +8,8 @@
 #       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@main
 #
 # It checks the caller out, brings cordon's engine + schema along, auto-detects
-# the stack (Python → uv; everything gets node + shellcheck + ripgrep), then runs
+# the stack (Python → uv deps, Node → npm deps; everything gets node + shellcheck
+# + ripgrep), then runs
 # cordon's checks engine over the caller's own cordon.checks.json — the repo's
 # commands (ruff, pytest, …) declared as data — folded with cordon's built-in
 # repo invariants into one verdict. Change the gate for every repo by editing
@@ -58,6 +59,13 @@ jobs:
       - name: Sync Python deps (Python repos only)
         if: ${{ hashFiles('pyproject.toml') != '' }}
         run: uv sync --extra dev || uv sync || true
+
+      - name: Install the caller's npm deps (Node repos only)
+        # The caller is checked out at the workspace root; .cordon is the engine.
+        # A repo with a lockfile gets its own deps so node-based checks (catalog
+        # `check:*` scripts, stylelint, a `commands[]` spec like tsc) can run.
+        if: ${{ hashFiles('package-lock.json') != '' }}
+        run: npm ci
 
       - name: Provision common check tooling
         run: |
