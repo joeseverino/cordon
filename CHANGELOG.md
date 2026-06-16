@@ -12,6 +12,13 @@ Cordon versions on two axes:
 ## [Unreleased]
 
 ### Added
+- **`readme-sync` and `version-alignment` catalog checks** — two checks that were
+  hand-written `commands[]` in consuming repos graduate to the catalog, so the
+  effect/exec/fix live in cordon and a repo gets them by detection, not by
+  declaring them. `readme-sync` gates on `file:scripts/gen-readme.mjs` (the
+  README-generator convention); `version-alignment` (a uv repo) reads pyproject
+  `[project].version` and the package `__version__` and asserts they match,
+  no-opping where there's nothing to align.
 - **A built-in check catalog with stack auto-detection** (`checks/catalog.mjs`).
   Per-stack commands cordon ships centrally — `ruff`/`pytest` (uv),
   `django-check`/`django-migrations` (Django), `conformance`/`drift`
