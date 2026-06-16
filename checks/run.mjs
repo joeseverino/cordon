@@ -141,6 +141,9 @@ function toCommandEntry(cmd, source, where, validate = false) {
     default: cmd.default, fix: cmd.fix ?? 'See the command output in the report for the failure.',
     exec: { cmd: cmd.exec.cmd, args: cmd.exec.args ?? [], env: cmd.exec.env },
     timeout: cmd.timeout ?? DEFAULT_TIMEOUT_MS,
+    // A catalog entry may vary its run over a dimension (e.g. pytest across Python
+    // versions); only cordon's own catalog declares this, never repo JSON.
+    expand: typeof cmd.expand === 'function' ? cmd.expand : undefined,
   };
 }
 
@@ -191,7 +194,13 @@ if (has('--list')) {
     const unmet = caps.unmet(e.requires);
     const mark = unmet.length ? C.yellow('skip') : C.green('run ');
     const why = unmet.length ? C.dim(` — needs ${unmet.join(', ')}`) : '';
-    console.log(`  ${mark} ${e.id.padEnd(span)} ${C.dim(`[${e.source} · ${e.effect}]`)} ${e.name}${why}`);
+    // Make a matrix visible: if it'll run, show the variants it expands to.
+    let matrix = '';
+    if (!unmet.length && e.expand) {
+      const variants = e.expand({ root, config: config[e.id] ?? {} });
+      if (variants && variants.length) matrix = C.dim(` ×[${variants.map((v) => v.label).join(',')}]`);
+    }
+    console.log(`  ${mark} ${e.id.padEnd(span)} ${C.dim(`[${e.source} · ${e.effect}]`)} ${e.name}${matrix}${why}`);
   }
   process.exit(0);
 }
@@ -296,6 +305,28 @@ async function runOne(entry, caps) {
     }
     const status = r.skipped ? 'skip' : r.ok ? 'pass' : 'fail';
     return { ...base, status, durationMs: Date.now() - start, detail: r.detail ?? '' };
+  }
+  // A matrix check (pytest over Python versions): run each variant, pass only if
+  // all do, and fold the per-variant output into one result row — so a CI gate
+  // still sees a single check, and the report names which variant failed.
+  const variants = entry.expand ? entry.expand({ root, config: config[entry.id] ?? {} }) : null;
+  if (variants && variants.length) {
+    let failed = false;
+    let durationMs = 0;
+    const parts = [];
+    for (const v of variants) {
+      const r = await runProcess(entry.exec.cmd, v.args, { cwd: root, env: entry.exec.env, timeout: entry.timeout });
+      durationMs += r.duration;
+      if (r.code !== 0) failed = true;
+      parts.push(`── ${entry.name} [${v.label}] — ${r.code === 0 ? 'ok' : 'FAILED'} ──\n${r.output.trim()}`);
+    }
+    return {
+      ...base,
+      name: `${entry.name} (${variants.map((v) => v.label).join(', ')})`,
+      status: failed ? 'fail' : 'pass',
+      durationMs,
+      detail: parts.join('\n\n'),
+    };
   }
   const r = await runProcess(entry.exec.cmd, entry.exec.args, { cwd: root, env: entry.exec.env, timeout: entry.timeout });
   return { ...base, status: r.code === 0 ? 'pass' : 'fail', durationMs: r.duration, detail: r.output.trim() };
