@@ -1,6 +1,6 @@
 {
   "name": "cordon-spec",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Cordon — a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
   "type": "module",
