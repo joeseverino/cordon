@@ -186,6 +186,11 @@ as `cordon-v5.json` and old consumers keep validating against v4. The name
 *Cordon* is the standard; the number is the contract revision. The repo itself is
 released on SemVer — see [`CHANGELOG.md`](CHANGELOG.md), which records both axes.
 
+Releases are automated by the reusable **[`cordon-release.yml`](.github/workflows/cordon-release.yml)**
+workflow (sibling of the [reusable gate](docs/REUSABLE-GATE.md)): every repo cuts
+versions and GitHub Releases through one three-line call, defaulting to `simple`.
+Full guide: [`docs/RELEASE.md`](docs/RELEASE.md).
+
 ## Local development
 
 Run `scripts/setup-hooks.sh` once per clone to enable the tracked git hooks
