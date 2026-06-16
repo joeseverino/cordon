@@ -59,6 +59,10 @@ This is the only manual step, and it is per repo.
    ships until then — the release PR is your review-and-iterate surface (let more
    work accumulate, or set `Release-As: X.Y.Z` in a commit to force a number).
 
+Every run writes a one-line **summary** to the Actions run summary — *released*,
+*release PR ready*, or *nothing to release* — the release-side sibling of the
+gate's checks report.
+
 ## Pick a `release-type`
 
 Logic is central; the version source is local. `simple` is the default so a
