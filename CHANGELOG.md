@@ -12,6 +12,28 @@ Cordon versions on two axes:
 ## [Unreleased]
 
 ### Added
+- **A built-in check catalog with stack auto-detection** (`checks/catalog.mjs`).
+  Per-stack commands cordon ships centrally — `ruff`/`pytest` (uv),
+  `django-check`/`django-migrations` (Django), `conformance`/`drift`
+  (cordon-tool), `shellcheck` (any shell) — each gated by a stack marker so it
+  runs only where its stack is present. **Most repos now carry no
+  `cordon.checks.json` at all**: the engine detects the stack and runs the right
+  checks. A command that's identical across repos of a stack graduates here, the
+  way a portable invariant graduates to `registry.mjs`.
+- **`file:<path>` and `glob:<pattern>` capabilities** (`checks/lib/capabilities.mjs`)
+  — the stack-marker detection the catalog gates on (`file:uv.lock`,
+  `file:manage.py`, `glob:**/*.sh`), the repo-shaped sibling of a `<binary>` probe.
+- **Node `check:*` script discovery** (`checks/lib/discover-scripts.mjs`) — a
+  repo's `package.json` `check:*` scripts are folded in as `read` checks, so a
+  bespoke audit is declared once where you already keep tasks, not re-listed.
+- **`enable` / `disable` config keys** — flip a check on/off by name, the
+  bare-minimum knob (no effect/exec/fix to restate). `disable` is a hard off;
+  `enable` opts into a `default: 'off'` catalog check (e.g. `playwright`).
+- **A reusable `pip-audit.yml` workflow** — the scheduled supply-chain scan as a
+  `workflow_call`, the security-side sibling of `cordon-gate.yml`. A Python repo
+  wires it in a few lines, passing only its advisory ignores. Dependency auditing
+  is a *scheduled* concern (a weekly scan over unchanged pins), so it's a workflow,
+  not a cordon check — and is deliberately not in the catalog.
 - **`checks/example-report.md`** — a committed, permanent example of a run report
   (a failing CI run, from a real run summary, plus a green run), linked from
   `checks/README.md`. A stable artifact to point at instead of a transient CI run.
@@ -20,6 +42,15 @@ Cordon versions on two axes:
   a "The full flow" section, sized smaller.
 
 ### Changed
+- **The reusable gate runs the checks engine directly** over a repo's
+  `cordon.checks.json`, folding its commands with cordon's invariants — no
+  `scripts/check.sh` indirection. The engine *is* the single gate, so CI and a
+  local `--list` resolve to the same checks.
+- **The config schema has its own canonical `$id`.** The `cordon.checks.json`
+  schema now publishes at `https://jseverino.com/schemas/cordon-checks-config-v2.json`
+  — distinct from the *verdict* schema (`cordon-checks-v2.json`) it was easy to
+  conflate, and replacing the floating `raw.githubusercontent.com/.../main` ref.
+  One stable address per schema; consuming repos point `$schema` at it.
 - **Checks report polish.** `.cordon-checks-report.md` gains a whole-picture
   **status table** (every check — pass/fail/skip — with its effect and, for a
   skip, *why*; so a skip is never mistaken for a pass), each failure's output

@@ -1,0 +1,59 @@
+# The one cordon pip-audit — reused by every Python (uv) repo.
+#
+# The scheduled supply-chain scan, as a reusable workflow — the security-side
+# sibling of cordon-gate.yml. Dependency auditing is deliberately NOT a cordon
+# *check*: a check runs on a change, but an audit's value is the *scheduled* run
+# that catches a newly-disclosed CVE against an unchanged lockfile. So it lives
+# here, once, and a repo wires it in a few lines — passing only its own advisory
+# ignores (with the rationale in a comment next to them):
+#
+#   jobs:
+#     audit:
+#       uses: joeseverino/cordon/.github/workflows/pip-audit.yml@main
+#       with:
+#         ignore-vulns: PYSEC-XXXX-YYY
+#
+# The caller owns the triggers (its weekly `schedule:` + `pull_request:`); this
+# owns the plumbing — checkout, uv setup, exporting the locked requirements, and
+# the official pypa action (SARIF + the security tab). Change the audit for every
+# repo by editing this file; change a repo's ignores in its own caller.
+name: pip-audit
+
+on:
+  workflow_call:
+    inputs:
+      ignore-vulns:
+        description: "Newline-separated advisory IDs to ignore (each with its rationale in a caller-side comment). Empty audits everything."
+        type: string
+        default: ""
+      python-version:
+        description: "Python to resolve the locked requirements against."
+        type: string
+        default: "3.12"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit pinned dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ inputs.python-version }}
+
+      - name: Export locked requirements
+        run: uv export --no-hashes --format requirements-txt > requirements-audit.txt
+
+      - name: Run pip-audit
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          inputs: requirements-audit.txt
+          ignore-vulns: ${{ inputs.ignore-vulns }}

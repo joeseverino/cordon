@@ -11,6 +11,13 @@
 //   macos       running on Darwin (committed visual baselines are macOS-rendered)
 //   ci          process.env.CI is set (a hosted runner, not an authoring machine)
 //   built-dir   a build has emitted a non-empty output dir (see `builtDirs`)
+//   file:<p>    a path (file or dir) exists at <root>/<p> — the stack marker
+//               auto-detection turns on: ['file:uv.lock'] lights a check up only
+//               in a uv repo, ['file:manage.py'] only in a Django one. The
+//               repo-shaped sibling of a binary probe.
+//   glob:<g>    at least one path matches the glob under <root>, ignoring
+//               node_modules/ and .git/ — ['glob:**/*.sh'] means "this repo has
+//               shell scripts", ['glob:playwright.config.*'] a playwright one.
 //   <binary>    any other token is an executable name, resolved on PATH and in
 //               <root>/node_modules/.bin (so `playwright`/`stylelint`/`tsc`
 //               resolve in a node repo without npx). e.g. requires: ['playwright']
@@ -45,6 +52,31 @@ function hasBuiltOutput(root, builtDirs) {
     } catch { /* missing dir — try the next candidate */ }
   }
   return false;
+}
+
+// `file:<p>` — a stack marker exists at the root (file or dir). A relative path,
+// never escaping the root (a leading '/' or '..' segment can't reach outside).
+function markerExists(root, rel) {
+  const abs = path.resolve(root, rel);
+  if (abs !== root && !abs.startsWith(root + path.sep)) return false;
+  return fs.existsSync(abs);
+}
+
+// `glob:<g>` — at least one path under the root matches, with node_modules/ and
+// .git/ pruned so a dependency's vendored shell scripts never make a repo look
+// like it "has shell scripts". Returns on the first hit (globSync is eager, so
+// the exclude is what keeps it cheap).
+function globMatches(root, pattern) {
+  try {
+    for (const _ of fs.globSync(pattern, {
+      cwd: root,
+      exclude: (p) => p === 'node_modules' || p === '.git'
+        || p.includes(`${path.sep}node_modules`) || p.startsWith('node_modules'),
+    })) {
+      return true;
+    }
+    return false;
+  } catch { return false; }
 }
 
 // Resolve a binary on PATH or in the repo's node_modules/.bin. Cached per detect()
@@ -84,6 +116,8 @@ export function detect(root, config = {}) {
   const resolveBinary = makeBinaryResolver(root);
 
   const positive = (cap) => {
+    if (cap.startsWith('file:')) return markerExists(root, cap.slice(5));
+    if (cap.startsWith('glob:')) return globMatches(root, cap.slice(5));
     switch (cap) {
       case 'git': return isGitWorkTree(root);
       case 'macos': return process.platform === 'darwin';

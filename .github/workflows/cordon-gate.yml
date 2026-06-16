@@ -67,19 +67,10 @@ jobs:
           sudo apt-get update -qq || true
           sudo apt-get install -y shellcheck ripgrep || true
 
-      - name: Run the gate
+      - name: Run cordon checks
         env:
           CORDON_HOME: ${{ github.workspace }}/.cordon
         run: |
-          # The repo's own scripts/check.sh is the gate — the same script you run
-          # locally and pre-push — so CI can't drift from it. A repo without one
-          # falls back to the checks engine directly over its cordon.checks.json.
-          set +e
-          if [ -f scripts/check.sh ]; then
-            bash scripts/check.sh --ci
-          else
-            node "$CORDON_HOME/checks/run.mjs" --root "$PWD"
-          fi
-          status=$?
+          node "$CORDON_HOME/checks/run.mjs" --root "$PWD"; status=$?
           [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
           exit $status
