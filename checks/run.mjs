@@ -41,6 +41,8 @@ import { checksFor } from './registry.mjs';
 import { buildConfigSchema } from './config-schema.mjs';
 import { detect, DEFAULT_BUILT_DIRS } from './lib/capabilities.mjs';
 import { runProcess, DEFAULT_TIMEOUT_MS } from './lib/run-process.mjs';
+import { CATALOG } from './catalog.mjs';
+import { discoverScripts } from './lib/discover-scripts.mjs';
 
 const SCHEMA_VERSION = 2;
 const PHASES = ['pre-build', 'build', 'post-build'];
@@ -107,59 +109,89 @@ if (fs.existsSync(configPath)) {
 }
 const builtDirs = Array.isArray(config.builtDirs) ? config.builtDirs : DEFAULT_BUILT_DIRS;
 
-// — Normalize both kinds into one entry shape the loop runs uniformly —
+// — Normalize every check into one entry shape the loop runs uniformly. Four
+// layers, in precedence order: cordon's in-process invariants, its built-in
+// command catalog (per-stack, auto-detected), the repo's own discovered task
+// scripts, and the repo's explicit commands[] escape hatch. A later layer
+// reusing an id intentionally overrides an earlier one (a repo replacing a
+// catalog default); `enable`/`disable` then decide what's active. —
 const invariantEntries = checksFor('check').map((c) => ({
-  kind: 'invariant',
+  kind: 'invariant', source: 'invariant',
   id: c.id, name: c.name, effect: c.effect,
   network: c.network, interactive: c.interactive,
   requires: c.requires ?? [], phase: c.phase ?? DEFAULT_PHASE,
-  fix: c.fix, run: c.run,
+  default: c.default, fix: c.fix, run: c.run,
 }));
 
-// A command entry is consumer data; validate the two fields the engine can't
-// infer (a spawn target, and the blast radius an agent risk-gates on) and fail
-// closed — an unclassified spec must never run as if it were a safe read.
-function loadCommandEntries() {
-  return (Array.isArray(config.commands) ? config.commands : []).map((cmd, i) => {
-    const where = `cordon.checks.json commands[${i}]`;
+// Shape a command spec (catalog, discovered, or repo) into a runnable entry.
+// `validate` fails closed on repo data — an unclassified spec must never run as
+// if it were a safe read; catalog/discovered specs are cordon's own, trusted.
+function toCommandEntry(cmd, source, where, validate = false) {
+  if (validate) {
     if (!cmd || typeof cmd !== 'object') throw new Error(`${where} must be an object`);
     if (!cmd.id) throw new Error(`${where} is missing 'id'`);
     if (!cmd.effect) throw new Error(`${where} ('${cmd.id}') must declare an 'effect' (its blast radius)`);
     if (!cmd.exec || typeof cmd.exec.cmd !== 'string') throw new Error(`${where} ('${cmd.id}') must declare exec.cmd`);
-    return {
-      kind: 'command',
-      id: cmd.id, name: cmd.name ?? cmd.id, effect: cmd.effect,
-      network: cmd.network, interactive: cmd.interactive,
-      requires: cmd.requires ?? [], phase: cmd.phase ?? DEFAULT_PHASE,
-      fix: cmd.fix ?? 'See the command output in the report for the failure.',
-      exec: { cmd: cmd.exec.cmd, args: cmd.exec.args ?? [], env: cmd.exec.env },
-      timeout: cmd.timeout ?? DEFAULT_TIMEOUT_MS,
-    };
-  });
+  }
+  return {
+    kind: 'command', source,
+    id: cmd.id, name: cmd.name ?? cmd.id, effect: cmd.effect,
+    network: cmd.network, interactive: cmd.interactive,
+    requires: cmd.requires ?? [], phase: cmd.phase ?? DEFAULT_PHASE,
+    default: cmd.default, fix: cmd.fix ?? 'See the command output in the report for the failure.',
+    exec: { cmd: cmd.exec.cmd, args: cmd.exec.args ?? [], env: cmd.exec.env },
+    timeout: cmd.timeout ?? DEFAULT_TIMEOUT_MS,
+  };
 }
 
-let entries;
+// Config-level on/off — names only, the bare-minimum knob a repo ever needs.
+// `disable` is a hard "never"; `default:'off'` checks (heavy/opt-in) stay off
+// until named in `enable` or targeted directly by `--only`. Capability
+// `requires` are evaluated later, per phase.
+const enable = new Set(Array.isArray(config.enable) ? config.enable : []);
+const disable = new Set(Array.isArray(config.disable) ? config.disable : []);
+const isActive = (e) =>
+  !disable.has(e.id) && (e.default !== 'off' || enable.has(e.id) || only === e.id);
+
+let layers;
 try {
-  entries = [...invariantEntries, ...loadCommandEntries()];
+  layers = [
+    invariantEntries,
+    CATALOG.map((c) => toCommandEntry(c, 'catalog', `catalog '${c.id}'`)),
+    discoverScripts(root).map((c) => toCommandEntry(c, 'discovered', `discovered '${c.id}'`)),
+    (Array.isArray(config.commands) ? config.commands : [])
+      .map((c, i) => toCommandEntry(c, 'repo', `cordon.checks.json commands[${i}]`, true)),
+  ];
 } catch (e) {
   console.error(`cordon: ${e.message}`);
   process.exit(2);
 }
+
+// A duplicate id WITHIN a layer is an authoring mistake (ambiguous --only /
+// verdict key); a later layer reusing an earlier id is an intentional override,
+// honored by letting later layers win into the id-keyed map.
+for (const layer of layers) {
+  const dup = layer.map((e) => e.id).filter((id, i, a) => a.indexOf(id) !== i);
+  if (dup.length) {
+    console.error(`cordon: duplicate check id(s): ${[...new Set(dup)].join(', ')}`);
+    process.exit(2);
+  }
+}
+const byId = new Map();
+for (const layer of layers) for (const e of layer) byId.set(e.id, e);
+const entries = [...byId.values()].filter(isActive);
 const entryById = (id) => entries.find((e) => e.id === id);
 
-// Built-in and consumer ids share one namespace (a verdict row is keyed by id);
-// a collision would make `--only` / `failed[]` ambiguous.
-const dupes = entries.map((e) => e.id).filter((id, i, a) => a.indexOf(id) !== i);
-if (dupes.length) {
-  console.error(`cordon: duplicate check id(s): ${[...new Set(dupes)].join(', ')}`);
-  process.exit(2);
-}
-
 if (has('--list')) {
+  // The "what runs here, and why" view: resolve capabilities against this repo
+  // so each active check shows run vs skip(reason) — the auto-detect made visible.
+  const caps = detect(root, { builtDirs });
   const span = Math.max(4, ...entries.map((e) => e.id.length));
   for (const e of entries) {
-    const reqs = e.requires.length ? C.dim(` requires ${e.requires.join(',')}`) : '';
-    console.log(`  ${e.id.padEnd(span)}  ${C.dim(`[${e.kind} · ${e.phase}]`)} ${e.name}${reqs}`);
+    const unmet = caps.unmet(e.requires);
+    const mark = unmet.length ? C.yellow('skip') : C.green('run ');
+    const why = unmet.length ? C.dim(` — needs ${unmet.join(', ')}`) : '';
+    console.log(`  ${mark} ${e.id.padEnd(span)} ${C.dim(`[${e.source} · ${e.effect}]`)} ${e.name}${why}`);
   }
   process.exit(0);
 }

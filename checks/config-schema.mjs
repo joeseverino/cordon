@@ -9,9 +9,12 @@
 import { CHECKS } from './registry.mjs';
 
 // The stable home the published schema is served from — what a consuming repo's
-// `cordon.checks.json` points its `$schema` at for editor autocomplete + AI.
-export const SCHEMA_ID =
-  'https://raw.githubusercontent.com/joeseverino/cordon/main/checks/config.schema.json';
+// `cordon.checks.json` points its `$schema` at for editor autocomplete + AI. A
+// canonical `$id` on the `https://jseverino.com/schemas/…` convention, distinct
+// from the verdict schema (cordon-checks-v2.json): this describes the *config*
+// file you write, that describes the *verdict* the engine emits. One address,
+// version-stable, not a floating branch ref.
+export const SCHEMA_ID = 'https://jseverino.com/schemas/cordon-checks-config-v2.json';
 
 // The two engine-level keys (not per-check): where the build emits, and the
 // repo's own spawned specs. Declared here so cordon.checks.json is fully
@@ -21,6 +24,16 @@ const EFFECT_LADDER = ['read', 'local_write', 'vault_write', 'remote_write', 'de
 const PHASES = ['pre-build', 'build', 'post-build'];
 
 const ENGINE_PROPERTIES = {
+  enable: {
+    type: 'array',
+    items: { type: 'string' },
+    description: "Turn ON a check that is off by default here — an opt-in catalog check (e.g. the heavy `playwright` suite). Names only; everything else (effect, command, fix) is cordon's. Run `node checks/run.mjs --list` to see what applies.",
+  },
+  disable: {
+    type: 'array',
+    items: { type: 'string' },
+    description: "Turn OFF an auto-detected check by id (e.g. `pip-audit`, or a discovered `check:*` script). The bare-minimum way to drop a check: just its name, no other config.",
+  },
   builtDirs: {
     type: 'array',
     items: { type: 'string' },
@@ -29,7 +42,7 @@ const ENGINE_PROPERTIES = {
   },
   commands: {
     type: 'array',
-    description: "This repo's own spawned specs (playwright, tsc, a bespoke audit) — merged with cordon's built-in invariants and run by the same engine. Spec code stays in the repo; this is just the inventory.",
+    description: "Escape hatch for a repo-specific spawned spec cordon's catalog doesn't already cover. Most repos need none — language presets auto-detect (uv/Django/cordon-tool/shell/node-web) and package.json `check:*` scripts are discovered. Reach for this only for a genuinely bespoke check; declare its blast-radius `effect`. An id here overrides a catalog check of the same id.",
     items: {
       type: 'object',
       additionalProperties: false,
@@ -40,8 +53,9 @@ const ENGINE_PROPERTIES = {
         effect: { enum: EFFECT_LADDER, description: "Blast radius an agent risk-gates on (cordon's ladder). Required — an unclassified spec must never run as a safe read." },
         network: { const: true, description: 'Set only when the spec itself reaches off-box.' },
         interactive: { const: true, description: 'Set only when the spec blocks on a TTY.' },
-        requires: { type: 'array', items: { type: 'string' }, description: 'Capabilities it needs (git/macos/ci/built-dir/<binary>, or !cap to negate); the engine skips it fail-soft when unmet.' },
+        requires: { type: 'array', items: { type: 'string' }, description: 'Capabilities it needs (git/macos/ci/built-dir, file:<path>, glob:<pattern>, <binary>, or !cap to negate); the engine skips it fail-soft when unmet.' },
         phase: { enum: PHASES, description: 'Where it runs around the build. Default pre-build.' },
+        default: { const: 'off', description: "Set to 'off' to make this an opt-in check — it runs only when its id is in `enable`. Omit for the normal on-when-detected behavior." },
         timeout: { type: 'integer', minimum: 1, description: 'Kill the spec after this many ms rather than wedge the gate.' },
         fix: { type: 'string', description: 'One-line remediation shown on failure.' },
         exec: {
@@ -83,9 +97,11 @@ export function buildConfigSchema() {
     $id: SCHEMA_ID,
     title: 'cordon.checks.json',
     description:
-      "Per-repo configuration for cordon's checks engine. Most keys are a check id "
-      + "(omit one to use that check's defaults); `builtDirs` and `commands` configure the "
-      + "engine itself. Run `node checks/run.mjs --list` to see every check that applies here.",
+      "Per-repo configuration for cordon's checks engine — and usually the whole file "
+      + "is optional. Checks auto-detect from the repo's stack; the common case is no file at all. "
+      + "Reach for one only to deviate: `enable`/`disable` flip a check by name (the bare minimum), "
+      + "a check-id key tunes a built-in check's options, and `builtDirs`/`commands` configure the "
+      + "engine. Run `node checks/run.mjs --list` to see exactly what runs here.",
     type: 'object',
     additionalProperties: false,
     properties,

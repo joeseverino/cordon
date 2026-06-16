@@ -18,30 +18,56 @@ verdict ([`schema/cordon-checks-v2.json`](../schema/cordon-checks-v2.json)).
 checks/
 ├── run.mjs              the engine — merge, capability-gate, phase, verdict, report
 ├── registry.mjs         the inventory of built-in invariants (data + module refs)
+├── catalog.mjs          the inventory of built-in commands (per-stack, auto-detected)
 ├── config-schema.mjs    derives the cordon.checks.json schema from each check
 ├── selftest.mjs         hermetic engine self-test (npm test runs it)
 └── lib/
-    ├── <id>.mjs         one invariant each: { id, name, effect, fix, gates, run(ctx) }
-    ├── capabilities.mjs detect git/macos/ci/built-dir/<binary> — the "respect what's available" layer
-    ├── run-process.mjs  the spawn harness for command entries (timeout, capture)
-    ├── built-tree.mjs   resolve + walk a build's output (the post-build invariants)
-    └── config.mjs       defaultsOf(configSchema) — runtime defaults from the one declaration
+    ├── <id>.mjs            one invariant each: { id, name, effect, fix, gates, run(ctx) }
+    ├── capabilities.mjs    detect git/macos/ci/built-dir/file:/glob:/<binary> — "respect what's available"
+    ├── discover-scripts.mjs synthesize read checks from a repo's package.json check:* scripts
+    ├── shellcheck-repo.sh  shell-file discovery for the catalog's shellcheck (ext + shebang)
+    ├── run-process.mjs     the spawn harness for command entries (timeout, capture)
+    ├── built-tree.mjs      resolve + walk a build's output (the post-build invariants)
+    └── config.mjs          defaultsOf(configSchema) — runtime defaults from the one declaration
 ```
 
 ## Two kinds of check — invariants and commands
 
 | | **invariant** | **command** |
 |---|---|---|
-| what | an in-process portable rule | a repo's own spawned spec |
-| examples | `repository-policy`, `internal-links` | `playwright test`, `tsc`, a bespoke audit |
-| lives in | cordon (`registry.mjs`) | the repo (`cordon.checks.json` `commands[]`) |
-| why there | a *general* rule, so it's referenced not reimplemented | asserts *that repo's* behavior, so it stays home |
+| what | an in-process portable rule | a spawned spec (a binary/script) |
+| examples | `repository-policy`, `internal-links` | `ruff`, `pytest`, `playwright`, a bespoke audit |
+| lives in | cordon (`registry.mjs`) | cordon's catalog (`catalog.mjs`) **or** the repo (`cordon.checks.json`) |
+| why there | a *general* rule, so it's referenced not reimplemented | per-stack ones graduate to the catalog; repo-specific ones stay home |
 
 The engine merges both at run time and runs them through one loop, so a verdict
 row looks the same whichever kind produced it. This is the boundary doctrine made
 mechanical: **invariant *definitions* graduate up here; command *definitions* stay
 home** — but the *engine* is central, so neither repo reimplements the runner, the
 verdict, the phases, or the capability gating.
+
+### Where commands come from — auto-detect first, declare only what's bespoke
+
+A command can reach the engine three ways, and the **common case is none of your
+doing**:
+
+1. **cordon's catalog** (`catalog.mjs`) — per-stack checks (`ruff`/`pytest` for a
+   uv repo, `django-check` for Django, `conformance`/`drift` for a cordon-tool
+   repo, `shellcheck` for anything with shell). Each is gated by a stack marker
+   (`file:pyproject.toml`, `file:manage.py`, `glob:**/*.sh`…), so it lights up
+   **only** where its stack is present. A repo gets them with no config.
+2. **Discovery** (`discover-scripts.mjs`) — your `package.json` `check:*` scripts
+   are read in as `read` checks. Declare a bespoke audit once, where you already
+   keep tasks; cordon picks it up. No re-listing.
+3. **Your `commands[]`** — the escape hatch for a spawned spec the catalog
+   doesn't cover, with its blast-radius `effect` declared. An id here overrides a
+   catalog check of the same id (repo wins).
+
+So **most repos carry no `cordon.checks.json` at all** — the engine detects the
+stack and runs the right checks. You write a file only to *deviate*: flip a check
+on/off by name with `enable`/`disable`, tune a built-in's options, or add a truly
+bespoke `commands[]` entry. Run `--list` to see exactly what a repo resolves to,
+each row marked `run`/`skip` with its source and reason.
 
 ### checks vs tests — the boundary
 
@@ -78,7 +104,9 @@ A check declares the capabilities it `requires`; the engine detects what's
 present and **skips fail-soft** what isn't, naming the unmet ones in the verdict.
 So a repo lights up only what it opts into — playwright runs only where playwright
 is installed, a `built-dir` check only after a build, a `macos` visual suite never
-fails a Linux runner.
+fails a Linux runner. This is also the **stack auto-detection**: a catalog check
+`requires` a marker (`file:uv.lock`, `file:manage.py`), so it runs only in that
+stack and skips everywhere else.
 
 | capability | true when |
 |---|---|
@@ -86,6 +114,8 @@ fails a Linux runner.
 | `macos` | running on Darwin |
 | `ci` | `process.env.CI` is set |
 | `built-dir` | a build emitted a non-empty output dir (see `builtDirs`) |
+| `file:<path>` | a file or dir exists at `<root>/<path>` — the stack marker (e.g. `file:pyproject.toml`) |
+| `glob:<pattern>` | at least one path matches, ignoring `node_modules/` and `.git/` (e.g. `glob:**/*.sh`) |
 | `<binary>` | any other token resolves on PATH or in `node_modules/.bin` (e.g. `playwright`) |
 
 A leading `!` negates — `requires: ["!ci"]` means *only when not in CI* (the
@@ -193,32 +223,38 @@ and a green run, side by side.
 
 ## Per-repo configuration
 
-Optional `cordon.checks.json` at the repo root. Most keys are a check id (handed
-to that check as `ctx.config`, merged over its defaults); `builtDirs` and
-`commands` configure the engine. Point its `$schema` at the published schema and
-your editor autocompletes every key — including each command entry — documents it
-on hover, and flags typos as you type:
+**The file is optional, and usually absent** — the catalog auto-detects the stack
+and discovery picks up your `check:*` scripts, so most repos run the right checks
+with no `cordon.checks.json` at all. You add one only to *deviate*. When you do,
+the bare-minimum knobs are names only:
+
+- **`disable: ["<id>"]`** — turn an auto-detected check off. Just its name; no
+  effect, command, or fix to restate.
+- **`enable: ["<id>"]`** — turn an opt-in (`default: 'off'`) catalog check on.
+
+Beyond that, a check-id key tunes a built-in's options (handed to it as
+`ctx.config`, merged over its defaults); `builtDirs` and `commands` configure the
+engine. Point its `$schema` at the published schema and your editor autocompletes
+every key, documents it on hover, and flags typos as you type:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/joeseverino/cordon/main/checks/config.schema.json",
+  "$schema": "https://jseverino.com/schemas/cordon-checks-config-v2.json",
+  "disable": ["pip-audit"],
+  "enable": ["playwright"],
   "builtDirs": ["dist"],
   "repository-policy": { "allowTaggedActions": false },
   "internal-links": { "origin": "https://example.com", "dynamicRoutePrefixes": ["/api/"] },
   "commands": [
     { "id": "types", "name": "Type check", "effect": "read",
-      "requires": ["tsc"], "exec": { "cmd": "npx", "args": ["tsc", "--noEmit"] } },
-    { "id": "e2e", "name": "Playwright", "effect": "local_write", "phase": "post-build",
-      "requires": ["playwright", "built-dir"], "timeout": 900000,
-      "exec": { "cmd": "npx", "args": ["playwright", "test"] },
-      "fix": "Run `npx playwright test --ui` to debug." }
+      "requires": ["tsc"], "exec": { "cmd": "npx", "args": ["tsc", "--noEmit"] } }
   ]
 }
 ```
 
-Absent file or absent keys → defaults. This is the seam that lets one engine run
-unmodified across repos: the *rules and runner* are central, the *parameters and
-specs* are local.
+Absent file or absent keys → auto-detected defaults. This is the seam that lets
+one engine run unmodified across repos: the *rules, runner, and per-stack checks*
+are central, only the *deviations* are local.
 
 ### The config schema is derived, never hand-written
 
@@ -257,7 +293,16 @@ product repo only when it passes the boundary test: a general invariant with at
 most a small declarative config seam. See `lib/repository-policy.mjs` and
 `lib/internal-links.mjs` (both graduated from `jseverino.com`) as references.
 
-**A command** (a repo's own spec — keep it home): add an entry to `commands[]` in
-your `cordon.checks.json` (the editor autocompletes the shape). No code in cordon;
-the engine spawns it, gates it on its `requires`, and folds it into the same
-verdict.
+**A catalog command** (a per-stack check every repo of that stack should get): add
+an entry to `CATALOG` in [`catalog.mjs`](catalog.mjs) — `{ id, name, effect, exec,
+fix }` plus a `requires` of stack markers (`file:…`/`glob:…`/`<binary>`) that gate
+it to its stack, and `default: 'off'` if it should be opt-in. It then
+auto-detects in every matching repo with no per-repo config. This is a command's
+equivalent of graduating an invariant: a check that's the same in every uv (or
+Django, or shell) repo belongs here, not copy-pasted into each `cordon.checks.json`.
+
+**A repo command** (a spec unique to one repo — keep it home): add an entry to
+`commands[]` in your `cordon.checks.json` (the editor autocompletes the shape), or
+— if it's a Node audit — just name it `check:<thing>` in `package.json` and
+discovery folds it in. No code in cordon; the engine spawns it, gates it on its
+`requires`, and folds it into the same verdict.
