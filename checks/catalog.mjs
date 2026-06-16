@@ -24,6 +24,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)); // checks/
 const CORDON_ROOT = path.resolve(HERE, '..');
 const VALIDATE = path.join(CORDON_ROOT, 'conformance', 'validate.mjs');
 const SHELLCHECK_SH = path.join(HERE, 'lib', 'shellcheck-repo.sh');
+const VERSION_ALIGN = path.join(HERE, 'lib', 'version-align.mjs');
 
 export const CATALOG = [
   // ── Python (uv) ─ pyproject.toml + uv.lock present, run through uv ──────────
@@ -44,6 +45,16 @@ export const CATALOG = [
     requires: ['file:pyproject.toml', 'file:uv.lock', 'uv'],
     exec: { cmd: 'uv', args: ['run', 'pytest', '-q'] },
     fix: 'Run `uv run pytest -q` and fix the failing test.',
+  },
+  // pyproject [project].version must match the package __version__. A general
+  // Python rule (cordon reads both files), so it graduates here instead of a
+  // hand-written version_check command in each repo. No-ops where there's
+  // nothing to align (dynamic version, no module __version__).
+  {
+    id: 'version-alignment', name: 'Version alignment', effect: 'read',
+    requires: ['file:pyproject.toml', 'node'],
+    exec: { cmd: 'node', args: [VERSION_ALIGN] },
+    fix: 'Align pyproject [project].version with the package __version__ (e.g. src/<pkg>/__init__.py).',
   },
 
   // ── Django ─ manage.py present ──────────────────────────────────────────────
@@ -72,6 +83,16 @@ export const CATALOG = [
     requires: ['file:contract', 'glob:bin/*', '!ci'],
     exec: { cmd: 'sh', args: ['-c', 'for t in bin/*; do [ -x "$t" ] || continue; g="contract/$(basename "$t").json"; "$t" --describe | diff -u "$g" - || exit 1; done'] },
     fix: 'Regenerate the golden after a surface change: `bin/<tool> --describe > contract/<tool>.json`. (Local-only — needs the tools on PATH.)',
+  },
+  // The README's generated reference block must be in sync. A convention — a repo
+  // ships scripts/gen-readme.mjs and this asserts `--check` is clean — so it
+  // graduates here, gated on that script's presence, instead of being declared
+  // per repo.
+  {
+    id: 'readme-sync', name: 'README reference in sync', effect: 'read',
+    requires: ['file:scripts/gen-readme.mjs', 'node'],
+    exec: { cmd: 'node', args: ['scripts/gen-readme.mjs', '--check'] },
+    fix: 'Run `node scripts/gen-readme.mjs` to regenerate the README reference block.',
   },
 
   // ── Shell ─ any tracked shell script ────────────────────────────────────────
