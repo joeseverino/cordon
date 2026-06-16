@@ -59,7 +59,11 @@ doing**:
    additionally runs **once per Python version** the package declares in
    `[project].classifiers` (`uv run --python <v> pytest`) — multi-version coverage
    as one check, no CI matrix, and it runs locally too. Override with
-   `{ "pytest": { "pythonVersions": [...] } }`, or `[]` for a single run.
+   `{ "pytest": { "pythonVersions": [...] } }`, or `[]` for a single run. A uv
+   package also gets `package-smoke` — it builds the wheel and imports it from an
+   isolated env, catching "imports from source, broken once installed" packaging
+   bugs the source-tree pytest can't see (no-ops where there's no build backend,
+   so it only fails on a real packaging error).
 2. **Discovery** (`discover-scripts.mjs`) — your `package.json` `check:*` scripts
    are read in as `read` checks. Declare a bespoke audit once, where you already
    keep tasks; cordon picks it up. No re-listing.

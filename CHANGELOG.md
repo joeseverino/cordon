@@ -12,6 +12,14 @@ Cordon versions on two axes:
 ## [Unreleased]
 
 ### Added
+- **`package-smoke` catalog check** — for a uv package, builds the wheel and
+  imports it from an isolated env (`uv run --no-project --with .`), catching
+  "imports from source, broken once installed" packaging bugs (a module missing
+  from the wheel, a broken build backend) that the source-tree pytest can't see.
+  Replaces hand-rolled per-repo "smoke test the installed package" CI steps with
+  one auto-detected check; no-ops where there's no `[build-system]` or no
+  determinable import module, so it only ever fails on a genuine packaging error.
+  `checks/lib/pyproject.mjs` gains build-system/name parsing and `importableModule`.
 - **Python version matrix in the `pytest` catalog check** — the suite now runs
   once per interpreter version a package declares in `[project].classifiers`
   (`uv run --python <v> pytest`), folded into a single check that passes only if

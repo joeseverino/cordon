@@ -250,6 +250,11 @@
       "additionalProperties": false,
       "description": "Config for the \"Version alignment\" check — no options."
     },
+    "package-smoke": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Built package imports\" check — no options."
+    },
     "django-check": {
       "type": "object",
       "additionalProperties": false,

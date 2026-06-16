@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parsePyproject } from './lib/pyproject.mjs';
+import { parsePyproject, importableModule } from './lib/pyproject.mjs';
 import { CATALOG } from './catalog.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -159,6 +159,80 @@ try {
   } finally {
     fs.rmSync(mdir, { recursive: true, force: true });
     fs.rmSync(bindir, { recursive: true, force: true });
+  }
+}
+
+// — Package smoke: a built wheel must import. Pure resolution, then the engine
+// end-to-end with a stubbed `uv` (build path) and the no-op paths. —
+{
+  const full = [
+    '[build-system]',
+    'requires = ["hatchling"]',
+    '[project]',
+    'name = "my-pkg"',
+  ].join('\n');
+  const parsed = parsePyproject(full);
+  check('pyproject: detects a [build-system]', parsed.buildSystem === true);
+  check('pyproject: extracts the distribution name', parsed.name === 'my-pkg');
+  check('pyproject: no [build-system] ⇒ buildSystem false', parsePyproject('[project]\nname = "x"\n').buildSystem === false);
+
+  const sdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-'));
+  try {
+    fs.mkdirSync(path.join(sdir, 'src', 'my_pkg'), { recursive: true });
+    fs.writeFileSync(path.join(sdir, 'src', 'my_pkg', '__init__.py'), '');
+    check('importableModule: finds the src-layout package', importableModule(sdir) === 'my_pkg');
+  } finally {
+    fs.rmSync(sdir, { recursive: true, force: true });
+  }
+  // No package dir, but a name ⇒ normalized fallback; nothing at all ⇒ null.
+  const ndir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-name-'));
+  try {
+    fs.writeFileSync(path.join(ndir, 'pyproject.toml'), '[project]\nname = "My-Pkg.Name"\n');
+    check('importableModule: falls back to the normalized dist name', importableModule(ndir) === 'my_pkg_name');
+  } finally {
+    fs.rmSync(ndir, { recursive: true, force: true });
+  }
+
+  // End-to-end with a stubbed uv: a buildable src-layout package ⇒ the smoke
+  // invokes uv and passes; the report shows it ran.
+  const pdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-e2e-'));
+  const bindir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-bin-'));
+  try {
+    fs.writeFileSync(path.join(pdir, 'pyproject.toml'),
+      '[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n[project]\nname = "my-pkg"\n');
+    fs.writeFileSync(path.join(pdir, 'uv.lock'), '');
+    fs.mkdirSync(path.join(pdir, 'src', 'my_pkg'), { recursive: true });
+    fs.writeFileSync(path.join(pdir, 'src', 'my_pkg', '__init__.py'), '');
+    const shim = path.join(bindir, 'uv');
+    fs.writeFileSync(shim, '#!/bin/sh\necho "uv $*"\nexit 0\n');
+    fs.chmodSync(shim, 0o755);
+    const r = spawnSync('node', ['checks/run.mjs', '--root', pdir, '--json'],
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env.PATH}` } });
+    const by = rowsById(JSON.parse(r.stdout));
+    check('package-smoke: a buildable package runs and passes', by['package-smoke']?.status === 'pass', JSON.stringify(by['package-smoke']));
+  } finally {
+    fs.rmSync(pdir, { recursive: true, force: true });
+    fs.rmSync(bindir, { recursive: true, force: true });
+  }
+
+  // No [build-system] ⇒ the smoke no-ops to pass without ever invoking uv (so it
+  // can't false-fail). uv.lock present so the catalog entry is otherwise active.
+  const nodir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-noop-'));
+  try {
+    fs.writeFileSync(path.join(nodir, 'pyproject.toml'), '[project]\nname = "x"\n');
+    fs.writeFileSync(path.join(nodir, 'uv.lock'), '');
+    // a `uv` that always fails — proves the no-op path never calls it
+    const bin2 = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pkg-bin2-'));
+    const shim = path.join(bin2, 'uv');
+    fs.writeFileSync(shim, '#!/bin/sh\nexit 7\n');
+    fs.chmodSync(shim, 0o755);
+    const r = spawnSync('node', ['checks/run.mjs', '--root', nodir, '--json'],
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin2}${path.delimiter}${process.env.PATH}` } });
+    const by = rowsById(JSON.parse(r.stdout));
+    check('package-smoke: no [build-system] ⇒ no-op pass, uv never called', by['package-smoke']?.status === 'pass', JSON.stringify(by['package-smoke']));
+    fs.rmSync(bin2, { recursive: true, force: true });
+  } finally {
+    fs.rmSync(nodir, { recursive: true, force: true });
   }
 }
 
