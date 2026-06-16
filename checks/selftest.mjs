@@ -11,6 +11,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { parsePyproject } from './lib/pyproject.mjs';
+import { CATALOG } from './catalog.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -87,6 +89,77 @@ try {
   }
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// — The Python version matrix: pyproject classifiers drive a one-check,
+// run-once-per-version pytest, with no CI matrix. First the pure resolution
+// (parsing + the catalog's expand seam), then the engine end-to-end. —
+{
+  const sample = [
+    '[project]',
+    'name = "x"',
+    'requires-python = ">=3.11"',
+    'classifiers = [',
+    '  "Programming Language :: Python :: 3.11",',
+    '  "Programming Language :: Python :: 3.12",',
+    '  "Programming Language :: Python :: 3.13",',
+    ']',
+    '[project.optional-dependencies]',
+    'dev = ["pytest"]',
+  ].join('\n');
+  const parsed = parsePyproject(sample);
+  check('pyproject: extracts version classifiers in order', JSON.stringify(parsed.versions) === JSON.stringify(['3.11', '3.12', '3.13']), JSON.stringify(parsed.versions));
+  check('pyproject: detects the dev extra group', parsed.extras.includes('dev'));
+
+  const pytest = CATALOG.find((c) => c.id === 'pytest');
+  check('catalog: pytest declares an expand seam', typeof pytest.expand === 'function');
+
+  const pdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pyproj-'));
+  try {
+    fs.writeFileSync(path.join(pdir, 'pyproject.toml'), sample);
+    const auto = pytest.expand({ root: pdir, config: {} });
+    check('pytest matrix: auto-derives one variant per classifier', auto?.length === 3, String(auto?.length));
+    check('pytest matrix: each variant pins --python and adds the dev extra',
+      ['3.11', '3.12', '3.13'].every((v, i) => auto[i].args.join(' ') === `run --python ${v} --extra dev pytest -q`),
+      JSON.stringify(auto?.map((v) => v.args)));
+    check('pytest matrix: explicit pythonVersions overrides classifiers',
+      pytest.expand({ root: pdir, config: { pythonVersions: ['3.12'] } })?.length === 1);
+    check('pytest matrix: empty pythonVersions opts out to a single run',
+      pytest.expand({ root: pdir, config: { pythonVersions: [] } }) === null);
+  } finally {
+    fs.rmSync(pdir, { recursive: true, force: true });
+  }
+
+  const ndir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-pyproj-none-'));
+  try {
+    fs.writeFileSync(path.join(ndir, 'pyproject.toml'), '[project]\nname = "x"\n');
+    check('pytest matrix: no classifiers ⇒ single default run', pytest.expand({ root: ndir, config: {} }) === null);
+  } finally {
+    fs.rmSync(ndir, { recursive: true, force: true });
+  }
+
+  // End-to-end: a stubbed `uv` on PATH proves expand → per-version loop → one
+  // aggregated row, with no real Python or network. The repo declares two
+  // classifiers and a uv.lock so the catalog's pytest (and ruff) light up.
+  const mdir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-matrix-'));
+  const bindir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-bin-'));
+  try {
+    fs.writeFileSync(path.join(mdir, 'pyproject.toml'),
+      '[project]\nname = "x"\nclassifiers = [\n  "Programming Language :: Python :: 3.11",\n  "Programming Language :: Python :: 3.12",\n]\n');
+    fs.writeFileSync(path.join(mdir, 'uv.lock'), '');
+    const shim = path.join(bindir, 'uv');
+    fs.writeFileSync(shim, '#!/bin/sh\necho "uv $*"\nexit 0\n');
+    fs.chmodSync(shim, 0o755);
+    const r = spawnSync('node', ['checks/run.mjs', '--root', mdir, '--json'],
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env.PATH}` } });
+    const verdict = JSON.parse(r.stdout);
+    const by = rowsById(verdict);
+    check('matrix engine: pytest runs once per version as a single passing row', by.pytest?.status === 'pass', JSON.stringify(by.pytest));
+    check('matrix engine: the row name reports the versions it covered', /3\.11.*3\.12/.test(by.pytest?.name || ''), by.pytest?.name);
+  } finally {
+    fs.rmSync(mdir, { recursive: true, force: true });
+    fs.rmSync(bindir, { recursive: true, force: true });
+  }
 }
 
 if (failures) {

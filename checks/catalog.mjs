@@ -15,8 +15,16 @@
 // Adding a stack = adding entries here. Nothing else. An entry's `default: 'off'`
 // makes it opt-in (heavy or destructive-adjacent suites); absent ⇒ on when its
 // markers are present.
+//
+// An entry may also carry an optional `expand({ root, config })` seam: a function
+// that returns an array of `{ label, args }` variants to run in place of the
+// static `exec.args` — one check, run N times, passing only if every variant
+// does (the report names which variant failed). It's how `pytest` runs across a
+// repo's declared Python versions as a single check, without a CI matrix. Return
+// `null`/`[]` to fall back to the one static run.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readPyproject } from './lib/pyproject.mjs';
 
 // cordon owns its own validator, so the `conformance` check resolves it from
 // here — no $CORDON_HOME, no vendoring. checks/ is one level under the repo root.
@@ -45,6 +53,33 @@ export const CATALOG = [
     requires: ['file:pyproject.toml', 'file:uv.lock', 'uv'],
     exec: { cmd: 'uv', args: ['run', 'pytest', '-q'] },
     fix: 'Run `uv run pytest -q` and fix the failing test.',
+    // Multi-version coverage with no CI matrix and no per-repo workflow: run the
+    // suite once per Python version the package supports, in one check. Versions
+    // come from `[project].classifiers` (auto-on from what's already declared);
+    // `pythonVersions` in cordon.checks.json overrides them, and `[]` opts out
+    // back to a single default run. The `dev` extra is added when the package
+    // ships one, so each version's env has the test deps (the gate's
+    // `uv sync --extra dev` convention, applied per version). No classifiers ⇒
+    // null ⇒ the single `uv run pytest -q` above. Runs locally too, not just CI.
+    expand: ({ root, config }) => {
+      const declared = readPyproject(root);
+      const versions = Array.isArray(config.pythonVersions) ? config.pythonVersions : declared.versions;
+      if (!versions || versions.length === 0) return null;
+      const extra = declared.extras.includes('dev') ? ['--extra', 'dev'] : [];
+      return versions.map((v) => ({ label: v, args: ['run', '--python', v, ...extra, 'pytest', '-q'] }));
+    },
+    configSchema: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Config for the Pytest check.',
+      properties: {
+        pythonVersions: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Python versions to run the suite across (e.g. ["3.11","3.12"]), as one check via `uv run --python <v>`. Omit to auto-derive from pyproject [project].classifiers; set [] to force a single default run.',
+        },
+      },
+    },
   },
   // pyproject [project].version must match the package __version__. A general
   // Python rule (cordon reads both files), so it graduates here instead of a

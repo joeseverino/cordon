@@ -225,6 +225,70 @@
       "type": "object",
       "additionalProperties": false,
       "description": "Config for the \"Structural HTML\" check — no options."
+    },
+    "ruff": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Ruff lint\" check — no options."
+    },
+    "pytest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the Pytest check.",
+      "properties": {
+        "pythonVersions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Python versions to run the suite across (e.g. [\"3.11\",\"3.12\"]), as one check via `uv run --python <v>`. Omit to auto-derive from pyproject [project].classifiers; set [] to force a single default run."
+        }
+      }
+    },
+    "version-alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Version alignment\" check — no options."
+    },
+    "django-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Django system check\" check — no options."
+    },
+    "django-migrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Migrations match models\" check — no options."
+    },
+    "conformance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Contracts validate against cordon\" check — no options."
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Contract matches live --describe\" check — no options."
+    },
+    "readme-sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"README reference in sync\" check — no options."
+    },
+    "shellcheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"ShellCheck\" check — no options."
+    },
+    "stylelint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Stylelint\" check — no options."
+    },
+    "playwright": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Playwright e2e\" check — no options."
     }
   }
 }

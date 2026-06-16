@@ -7,6 +7,7 @@
 // committed `checks/config.schema.json` is the published artifact the `$schema`
 // URL serves, kept fresh by cordon's own dogfooded idempotence check.
 import { CHECKS } from './registry.mjs';
+import { CATALOG } from './catalog.mjs';
 
 // The stable home the published schema is served from — what a consuming repo's
 // `cordon.checks.json` points its `$schema` at for editor autocomplete + AI. A
@@ -83,9 +84,12 @@ export function buildConfigSchema() {
     },
     ...ENGINE_PROPERTIES,
   };
-  for (const c of CHECKS) {
-    // A check with no config seam still gets an entry, so a reader sees every
-    // available knob (and an empty object is the only valid value).
+  // Both built-in tiers contribute a config key: in-process invariants (CHECKS)
+  // and the auto-detected command catalog (CATALOG, e.g. pytest's pythonVersions).
+  // A check with no config seam still gets an entry, so a reader sees every
+  // available knob (and an empty object is the only valid value). Repo-authored
+  // commands[] and discovered check:* scripts are not cordon-owned, so they don't.
+  for (const c of [...CHECKS, ...CATALOG]) {
     properties[c.id] = c.configSchema ?? {
       type: 'object',
       additionalProperties: false,

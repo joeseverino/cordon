@@ -12,6 +12,17 @@ Cordon versions on two axes:
 ## [Unreleased]
 
 ### Added
+- **Python version matrix in the `pytest` catalog check** — the suite now runs
+  once per interpreter version a package declares in `[project].classifiers`
+  (`uv run --python <v> pytest`), folded into a single check that passes only if
+  every version does. Versions are auto-derived (a new dependency-free
+  `checks/lib/pyproject.mjs` reader); `{ "pytest": { "pythonVersions": [...] } }`
+  overrides them and `[]` opts back out to one run. This replaces hand-rolled
+  per-repo CI matrices with one standard check that also runs locally — and the
+  catalog gains an `expand({ root, config })` seam (one check, N runs) for it.
+  Catalog checks with a `configSchema` (e.g. pytest) now contribute their config
+  keys to the published `cordon.checks.json` schema, and `--list` shows a check's
+  matrix variants.
 - **`readme-sync` and `version-alignment` catalog checks** — two checks that were
   hand-written `commands[]` in consuming repos graduate to the catalog, so the
   effect/exec/fix live in cordon and a repo gets them by detection, not by

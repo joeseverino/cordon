@@ -55,7 +55,11 @@ doing**:
    uv repo, `django-check` for Django, `conformance`/`drift` for a cordon-tool
    repo, `shellcheck` for anything with shell). Each is gated by a stack marker
    (`file:pyproject.toml`, `file:manage.py`, `glob:**/*.sh`…), so it lights up
-   **only** where its stack is present. A repo gets them with no config.
+   **only** where its stack is present. A repo gets them with no config. `pytest`
+   additionally runs **once per Python version** the package declares in
+   `[project].classifiers` (`uv run --python <v> pytest`) — multi-version coverage
+   as one check, no CI matrix, and it runs locally too. Override with
+   `{ "pytest": { "pythonVersions": [...] } }`, or `[]` for a single run.
 2. **Discovery** (`discover-scripts.mjs`) — your `package.json` `check:*` scripts
    are read in as `read` checks. Declare a bespoke audit once, where you already
    keep tasks; cordon picks it up. No re-listing.
