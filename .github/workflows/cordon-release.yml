@@ -44,6 +44,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        id: release
         with:
           release-type: ${{ inputs.release-type }}
           token: ${{ secrets.token || github.token }}
+
+      # Always tell the run summary what happened — the release-side sibling of
+      # the gate's checks report. One of three states: shipped a release,
+      # staged a release PR to merge, or nothing to do.
+      - name: Summarize the release run
+        if: always()
+        env:
+          RELEASED: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+          REL_URL: ${{ steps.release.outputs.html_url }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          {
+            echo "## cordon release"
+            echo ""
+            if [ "$RELEASED" = "true" ]; then
+              echo "🚀 **Released [\`$TAG\`]($REL_URL)** — tag cut and GitHub Release published."
+            elif [ -n "$PR_JSON" ] && [ "$PR_JSON" != "null" ]; then
+              num=$(printf '%s' "$PR_JSON" | jq -r '.number // empty')
+              title=$(printf '%s' "$PR_JSON" | jq -r '.title // empty')
+              echo "📦 **Release PR ready:** [$title]($REPO_URL/pull/$num) ([#$num]($REPO_URL/pull/$num))"
+              echo ""
+              echo "Merge it to cut the \`vX.Y.Z\` tag + GitHub Release — nothing ships until then."
+            else
+              echo "✓ **Nothing to release** — no releasable commits since the last release."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
