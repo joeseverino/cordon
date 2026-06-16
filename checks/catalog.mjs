@@ -79,7 +79,7 @@ export const CATALOG = [
     fix: 'Regenerate the golden after a surface change: `bin/<tool> --describe > contract/<tool>.json`.',
   },
   {
-    id: 'drift', name: 'Contract == live --describe', effect: 'read',
+    id: 'drift', name: 'Contract matches live --describe', effect: 'read',
     requires: ['file:contract', 'glob:bin/*', '!ci'],
     exec: { cmd: 'sh', args: ['-c', 'for t in bin/*; do [ -x "$t" ] || continue; g="contract/$(basename "$t").json"; "$t" --describe | diff -u "$g" - || exit 1; done'] },
     fix: 'Regenerate the golden after a surface change: `bin/<tool> --describe > contract/<tool>.json`. (Local-only — needs the tools on PATH.)',
