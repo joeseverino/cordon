@@ -46,12 +46,12 @@ jobs:
       - name: Check out the calling repo
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - name: Check out cordon (engine + schema — never vendored)
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: joeseverino/cordon
-          ref: ${{ inputs.cordon-ref }}
-          path: .cordon
+      - name: Fetch cordon (engine + schema — OUTSIDE the caller's tree)
+        # Cloned into RUNNER_TEMP, never a path inside the caller's workspace: a
+        # repo whose own tooling scans the working tree (a generated README/repo
+        # inventory, a "list every dir" check) must not see cordon's files as if
+        # they were the repo's. cordon is public, so no auth; shallow for speed.
+        run: git clone --depth 1 --branch "${{ inputs.cordon-ref }}" https://github.com/joeseverino/cordon "$RUNNER_TEMP/cordon"
 
       - name: Set up Node (the engine runs on it)
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
@@ -59,7 +59,7 @@ jobs:
           node-version: "24"
 
       - name: Install cordon's engine deps
-        run: npm --prefix .cordon ci
+        run: npm --prefix "$RUNNER_TEMP/cordon" ci
 
       - name: Set up uv (Python repos only)
         if: ${{ hashFiles('pyproject.toml') != '' }}
@@ -72,9 +72,10 @@ jobs:
         run: uv sync --extra dev || uv sync || true
 
       - name: Install the caller's npm deps (Node repos only)
-        # The caller is checked out at the workspace root; .cordon is the engine.
-        # A repo with a lockfile gets its own deps so node-based checks (catalog
-        # `check:*` scripts, stylelint, a `commands[]` spec like tsc) can run.
+        # The caller owns the workspace root; cordon's engine lives in RUNNER_TEMP,
+        # out of the tree. A repo with a lockfile gets its own deps so node-based
+        # checks (catalog `check:*` scripts, stylelint, a `commands[]` spec like
+        # tsc) can run.
         if: ${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
 
@@ -96,7 +97,7 @@ jobs:
 
       - name: Run cordon checks
         env:
-          CORDON_HOME: ${{ github.workspace }}/.cordon
+          CORDON_HOME: ${{ runner.temp }}/cordon
         run: |
           node "$CORDON_HOME/checks/run.mjs" --root "$PWD"; status=$?
           [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
