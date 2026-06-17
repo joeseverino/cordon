@@ -35,6 +35,16 @@
       ],
       "description": "Candidate build-output dirs (first non-empty one wins). Drives the `built-dir` capability and the post-build invariants, so they agree on where the build is."
     },
+    "runner": {
+      "type": "string",
+      "default": "ubuntu-latest",
+      "description": "GitHub Actions runner the reusable cordon gate runs this repo on. Default ubuntu-latest; set 'macos-latest' for a repo that needs macOS (Keychain, a brew toolchain). Read by the gate, not the engine — so the caller's ci.yml stays the identical bare gate call, with the per-repo runner living here as data."
+    },
+    "packages": {
+      "type": "string",
+      "default": "",
+      "description": "Extra check tooling the gate installs beyond its shellcheck + ripgrep base, space-separated (brew formulae on macOS, apt names on Linux), e.g. 'bash zsh bats-core age jq'. Read by the gate, not the engine."
+    },
     "commands": {
       "type": "array",
       "description": "Escape hatch for a repo-specific spawned spec cordon's catalog doesn't already cover. Most repos need none — language presets auto-detect (uv/Django/cordon-tool/shell/node-web) and package.json `check:*` scripts are discovered. Reach for this only for a genuinely bespoke check; declare its blast-radius `effect`. An id here overrides a catalog check of the same id.",

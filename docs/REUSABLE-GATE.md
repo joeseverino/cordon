@@ -52,6 +52,24 @@ nothing else. Example (a Python repo):
 Each command is capability-gated (`requires`), so it runs where its tool exists
 and skips fail-soft where it doesn't — the same file is portable across repos.
 
+## Runner + tooling are data too (`runner`, `packages`)
+
+A repo that needs macOS or extra tools never edits its workflow — it sets two
+keys in `cordon.checks.json`, and the gate's `detect` job reads them:
+
+```json
+{
+  "runner": "macos-latest",
+  "packages": "bash zsh bats-core age jq"
+}
+```
+
+`runner` defaults to `ubuntu-latest`; `packages` are installed beyond the gate's
+`shellcheck` + `ripgrep` base (brew formulae on macOS, apt names on Linux). So
+**every repo's `ci.yml` stays the identical bare gate call** — the per-repo runner
+lives in data, not the workflow. (This adds a uniform `cordon / detect` check
+beside `cordon / gate`, since a job's runner can't be read from a file mid-job.)
+
 ## Changing things
 
 - **CI behavior for every repo** → edit `cordon-gate.yml` here. One change, all repos.

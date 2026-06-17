@@ -1,23 +1,23 @@
 # The one cordon gate — reused by every Severino repo.
 #
-# This is the single place CI logic lives. A repo runs the whole standard gate by
-# calling this workflow in three lines (see docs/REUSABLE-GATE.md):
+# A repo runs the whole standard gate by calling this in three lines (see
+# docs/REUSABLE-GATE.md), with NOTHING repo-specific in its workflow:
 #
 #   jobs:
 #     cordon:
 #       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@main
 #
-# It checks the caller out, brings cordon's engine + schema along, auto-detects
-# the stack (Python → uv deps, Node → npm deps; everything gets node + shellcheck
-# + ripgrep), then runs cordon's checks engine over the caller's own
-# cordon.checks.json — the repo's commands (ruff, pytest, …) declared as data —
-# folded with cordon's built-in repo invariants into one verdict. Change the gate
-# for every repo by editing this file; change a repo's commands by editing its
-# cordon.checks.json. Nothing is copied per repo, and every repo — on Linux or
-# (via `runner: macos-latest`) macOS — reports the same status check: `cordon / gate`.
+# Every caller's ci.yml is that identical bare call. Per-repo CI parameters live
+# in the one data file, cordon.checks.json — never in the workflow:
+#   { "runner": "macos-latest", "packages": "bash zsh bats-core age jq" }
+# `runner` defaults to ubuntu-latest; `packages` are extra brew/apt tooling beyond
+# the shellcheck + ripgrep base (brew formulae on macOS, apt names on Linux). The
+# `detect` job reads them first, because runs-on can't read a repo file mid-job.
 #
-# Inputs: `runner` (default ubuntu-latest) and `packages` (extra brew/apt tooling)
-# let a repo that needs macOS or a specific toolchain still ride the one gate.
+# The gate then checks the caller out, brings cordon's engine + schema along,
+# auto-detects the stack (Python → uv deps, Node → npm deps), and runs cordon's
+# checks engine over cordon.checks.json folded with cordon's repo invariants into
+# one verdict. Required status check, identical everywhere: `cordon / gate`.
 name: cordon gate
 
 on:
@@ -27,21 +27,37 @@ on:
         description: "Which cordon ref provides the engine + schema (default: main)."
         type: string
         default: main
-      runner:
-        description: "Runner image. Default ubuntu-latest; pass macos-latest for repos that need macOS (Keychain, a brew toolchain)."
-        type: string
-        default: ubuntu-latest
-      packages:
-        description: "Extra check tooling to install beyond shellcheck + ripgrep, space-separated (apt names on Linux, brew formulae on macOS). e.g. 'bats-core age'."
-        type: string
-        default: ""
 
 permissions:
   contents: read
 
 jobs:
+  # Runner + extra tooling are data (cordon.checks.json), not workflow inputs — so
+  # every caller's ci.yml stays the identical bare gate call. runs-on can't read a
+  # repo file mid-job, so this tiny job reads them first and hands them to `gate`.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.cfg.outputs.runner }}
+      packages: ${{ steps.cfg.outputs.packages }}
+    steps:
+      - name: Check out the calling repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Read runner + packages from cordon.checks.json
+        id: cfg
+        run: |
+          runner=ubuntu-latest
+          packages=""
+          if [ -f cordon.checks.json ]; then
+            runner=$(jq -r '.runner // "ubuntu-latest"' cordon.checks.json)
+            packages=$(jq -r '.packages // ""' cordon.checks.json)
+          fi
+          echo "runner=$runner"     >> "$GITHUB_OUTPUT"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+
   gate:
-    runs-on: ${{ inputs.runner }}
+    needs: detect
+    runs-on: ${{ needs.detect.outputs.runner }}
     steps:
       - name: Check out the calling repo
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -78,14 +94,15 @@ jobs:
         if: ${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
 
-      - name: Provision common check tooling
+      - name: Provision check tooling
         env:
-          EXTRA_PACKAGES: ${{ inputs.packages }}
+          EXTRA_PACKAGES: ${{ needs.detect.outputs.packages }}
         run: |
           # shellcheck (shell repos) + ripgrep (some test suites shell out to it),
-          # plus any caller-declared `packages`. OS-aware: brew on macOS, apt on
-          # Linux. `|| true`: a broken preinstalled third-party repo must not fail
-          # the gate — the base tools come from the always-present archive.
+          # plus any caller-declared `packages` (from cordon.checks.json). OS-aware:
+          # brew on macOS, apt on Linux. `|| true`: a broken preinstalled third-party
+          # repo must not fail the gate — the base tools come from the always-present
+          # archive.
           base="shellcheck ripgrep"
           if [ "$RUNNER_OS" = "macOS" ]; then
             brew install $base $EXTRA_PACKAGES || true
