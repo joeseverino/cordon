@@ -9,12 +9,15 @@
 #
 # It checks the caller out, brings cordon's engine + schema along, auto-detects
 # the stack (Python → uv deps, Node → npm deps; everything gets node + shellcheck
-# + ripgrep), then runs
-# cordon's checks engine over the caller's own cordon.checks.json — the repo's
-# commands (ruff, pytest, …) declared as data — folded with cordon's built-in
-# repo invariants into one verdict. Change the gate for every repo by editing
-# this file; change a repo's commands by editing its cordon.checks.json. Nothing
-# is copied per repo, and every repo reports the same status check: `cordon / gate`.
+# + ripgrep), then runs cordon's checks engine over the caller's own
+# cordon.checks.json — the repo's commands (ruff, pytest, …) declared as data —
+# folded with cordon's built-in repo invariants into one verdict. Change the gate
+# for every repo by editing this file; change a repo's commands by editing its
+# cordon.checks.json. Nothing is copied per repo, and every repo — on Linux or
+# (via `runner: macos-latest`) macOS — reports the same status check: `cordon / gate`.
+#
+# Inputs: `runner` (default ubuntu-latest) and `packages` (extra brew/apt tooling)
+# let a repo that needs macOS or a specific toolchain still ride the one gate.
 name: cordon gate
 
 on:
@@ -24,13 +27,21 @@ on:
         description: "Which cordon ref provides the engine + schema (default: main)."
         type: string
         default: main
+      runner:
+        description: "Runner image. Default ubuntu-latest; pass macos-latest for repos that need macOS (Keychain, a brew toolchain)."
+        type: string
+        default: ubuntu-latest
+      packages:
+        description: "Extra check tooling to install beyond shellcheck + ripgrep, space-separated (apt names on Linux, brew formulae on macOS). e.g. 'bats-core age'."
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Check out the calling repo
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -68,12 +79,20 @@ jobs:
         run: npm ci
 
       - name: Provision common check tooling
+        env:
+          EXTRA_PACKAGES: ${{ inputs.packages }}
         run: |
-          # shellcheck (shell repos) + ripgrep (some test suites shell out to it).
-          # `|| true`: a broken preinstalled third-party apt repo must not fail the
-          # gate — these come from the always-present Ubuntu archive.
-          sudo apt-get update -qq || true
-          sudo apt-get install -y shellcheck ripgrep || true
+          # shellcheck (shell repos) + ripgrep (some test suites shell out to it),
+          # plus any caller-declared `packages`. OS-aware: brew on macOS, apt on
+          # Linux. `|| true`: a broken preinstalled third-party repo must not fail
+          # the gate — the base tools come from the always-present archive.
+          base="shellcheck ripgrep"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install $base $EXTRA_PACKAGES || true
+          else
+            sudo apt-get update -qq || true
+            sudo apt-get install -y $base $EXTRA_PACKAGES || true
+          fi
 
       - name: Run cordon checks
         env:

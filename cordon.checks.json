@@ -5,6 +5,14 @@
   },
   "commands": [
     {
+      "id": "conformance",
+      "name": "Conformance + engine self-test",
+      "effect": "read",
+      "requires": ["node"],
+      "exec": { "cmd": "npm", "args": ["test"] },
+      "fix": "Run `npm test` (conformance/validate.mjs + checks/selftest.mjs) and fix the reported divergence; if a contract shape changed legitimately, update the schema, fixtures, and emitters together."
+    },
+    {
       "id": "py-emitter",
       "name": "Python reference emitter selftest",
       "effect": "read",

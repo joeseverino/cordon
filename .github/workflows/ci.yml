@@ -1,4 +1,9 @@
-name: conformance
+# cordon rides its own reusable gate, like every repo in the fleet — so its
+# check lines up too: `cordon / gate`. The conformance suite (npm test) and the
+# config-schema idempotence guard are declared as checks in cordon.checks.json;
+# the gate runs them. A LOCAL ref (./…) is used on purpose: a PR is gated by the
+# gate + checks it actually ships, not by main's copy.
+name: ci
 
 on:
   push:
@@ -6,26 +11,5 @@ on:
   pull_request:
 
 jobs:
-  conformance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-      - run: npm ci
-      # The fixture sweep (every verdict/contract shape) AND the engine self-test
-      # (invariants, command entries, capability gating, phases — and that the
-      # live --json validates against the schema). One green badge, both proven.
-      - name: Conformance + engine self-test
-        run: npm test
-      # cordon's checks engine over cordon — including the dogfooded idempotence
-      # check that fails if checks/config.schema.json has drifted from its source
-      # (the per-check configSchema declarations). The run report (the
-      # whole-picture status table, green or red) is always surfaced in the run
-      # summary; the same verdict is available as --json for an agent.
-      - name: Checks (dogfood, guards the derived config schema)
-        run: |
-          node checks/run.mjs --root "$PWD"; status=$?
-          [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
-          exit $status
+  cordon:
+    uses: ./.github/workflows/cordon-gate.yml
