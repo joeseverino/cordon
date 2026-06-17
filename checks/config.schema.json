@@ -285,6 +285,11 @@
       "additionalProperties": false,
       "description": "Config for the \"ShellCheck\" check — no options."
     },
+    "bats": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Bats tests\" check — no options."
+    },
     "stylelint": {
       "type": "object",
       "additionalProperties": false,

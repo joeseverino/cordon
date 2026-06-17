@@ -144,12 +144,21 @@ export const CATALOG = [
     fix: 'Run `node scripts/gen-readme.mjs` to regenerate the README reference block.',
   },
 
-  // ── Shell ─ any tracked shell script ────────────────────────────────────────
+  // ── Shell ─ tracked shell scripts + bats suite ──────────────────────────────
   {
     id: 'shellcheck', name: 'ShellCheck', effect: 'read',
     requires: ['glob:**/*.sh', 'shellcheck'],
     exec: { cmd: 'sh', args: [SHELLCHECK_SH] },
     fix: 'Fix the reported shell issues, or add a scoped `# shellcheck disable=...`.',
+  },
+  // The shell-repo sibling of pytest: a tests/ tree of *.bats runs through bats,
+  // auto-detected so a shell toolchain needs no per-repo file. Good bats suites
+  // self-resolve their own paths (BATS_TEST_DIRNAME), so no env is required.
+  {
+    id: 'bats', name: 'Bats tests', effect: 'read',
+    requires: ['glob:tests/**/*.bats', 'bats'],
+    exec: { cmd: 'bats', args: ['tests'] },
+    fix: 'Run `bats tests` and fix the failing test.',
   },
 
   // ── Node web ─ config-file detected; the heavy e2e suite is opt-in ──────────
