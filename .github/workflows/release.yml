@@ -12,11 +12,13 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   cordon:
+    permissions:
+      contents: write
+      pull-requests: write
     uses: ./.github/workflows/cordon-release.yml
     with:
       release-type: node
