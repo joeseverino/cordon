@@ -11,7 +11,7 @@ the schema in the same repo.
 
 | Emitter | Language | Shape | How |
 |---|---|---|---|
-| [`emitters/python`](../emitters/python/) (`cordon-emit`) | Python | **introspect** | One line — `describe_main(parser, group=…, order=…)` — projects an existing `argparse` parser to the contract; `set_effect()` declares each command's blast radius. Zero-touch path: `python -m cordon_emit module:factory`. Proven byte-identical to the bash leaf fixture by its selftest. |
+| [`emitters/python`](../emitters/python/) (`cordon-emit`) | Python | **introspect** | One line — `describe_main(parser, group=…, order=…)` — projects an existing `argparse` parser to the contract; `set_effect()` declares each command's blast radius. Undeclared commands default to `read` but the emitter warns, and `--effect-required` makes an undeclared command fatal (strict posture). Zero-touch path: `python -m cordon_emit module:factory`. Proven byte-identical to the bash leaf fixture by its selftest. |
 
 ## In-the-wild emitters
 
