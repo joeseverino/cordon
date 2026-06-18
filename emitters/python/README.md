@@ -42,7 +42,10 @@ parser. The only thing you add by hand is the one fact a parser can't tell you:
 each command's **blast radius**, via `set_effect()` on the
 [effect ladder](../../README.md#the-effect-ladder)
 (`read < local_write < vault_write < remote_write < deploy`, plus `network` /
-`interactive`). Unannotated commands default to `read`.
+`interactive`). Unannotated commands default to `read`, and the emitter **warns**
+on stderr for each one so a forgotten blast radius isn't a silent fail-open. Pass
+`--effect-required` (or `effect_required=True`) to make an undeclared command a
+hard error instead — the strict, multi-tenant posture.
 
 ## So powerful — zero-touch on any parser
 
@@ -63,10 +66,11 @@ code change.
 
 | symbol | does |
 |---|---|
-| `describe_main(parser, *, group, order, **kw)` | drop-in `--describe` handler: emit + `SystemExit(0)` when requested, else return. The one-liner. |
+| `describe_main(parser, *, group, order, **kw)` | drop-in `--describe` handler: emit + `SystemExit(0)` when requested, else return. Honors `--effect-required` in argv. The one-liner. |
 | `describe_parser(parser, *, group, order, effect=None, paras=None, examples=None) -> dict` | the pure projection — returns the full `{ok, schema_version, …}` document. |
 | `set_effect(parser, effect, *, network=False, interactive=False)` | annotate a (sub)parser's blast radius; returns it so it nests in `add_parser(...)`. |
-| `emit(parser, *, pretty=False, **kw)` | `print(json.dumps(describe_parser(...)))`; compact by default, `--pretty` indents. |
+| `undeclared_effects(parser, *, tool_effect_override=None) -> list[str]` | the surfaces whose blast radius defaulted instead of being declared (command names, or the tool itself for a leaf). Empty means every effect was an explicit choice. |
+| `emit(parser, *, pretty=False, effect_required=False, **kw)` | `print(json.dumps(describe_parser(...)))`; compact by default, `--pretty` indents. Warns on any command whose effect defaulted; `effect_required=True` makes that a hard error. |
 
 `describe_parser` returns the canonical, byte-deterministic document (no
 timestamps, stable order) — a guard can diff it.
