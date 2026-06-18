@@ -19,7 +19,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from cordon_emit import EFFECTS, describe_parser, set_effect  # noqa: E402
+from cordon_emit import (  # noqa: E402
+    EFFECTS,
+    describe_parser,
+    emit,
+    set_effect,
+    undeclared_effects,
+)
 
 
 def _leaf_parser() -> argparse.ArgumentParser:
@@ -130,11 +136,43 @@ def fixture_parity() -> None:
     print("selftest: byte-parity with the bash-emitted leaf fixture", file=sys.stderr)
 
 
+def effect_honesty() -> None:
+    """Undeclared blast radius is detected, warned by default, fatal when strict.
+
+    A leaf tool with no explicit effect, and a subcommand left un-annotated, are
+    both reported by undeclared_effects(); the declared commands are not. Under
+    effect_required the same condition is a hard error, while the default emit
+    still produces a contract (the local fail-open posture is a choice, not a
+    breakage).
+    """
+    # Declared commands are silent; the un-annotated one is flagged.
+    p = argparse.ArgumentParser(prog="demo")
+    sub = p.add_subparsers(dest="command")
+    set_effect(sub.add_parser("show", help="read it"), "read")
+    sub.add_parser("ship", help="unclassified on purpose")  # no set_effect
+    _check(undeclared_effects(p) == ["ship"], "undeclared command not detected")
+
+    leaf = argparse.ArgumentParser(prog="bare")  # no subcommands, no effect
+    _check(undeclared_effects(leaf) == ["bare"], "undeclared leaf tool not detected")
+    _check(undeclared_effects(leaf, tool_effect_override="deploy") == [],
+           "explicit tool override should clear the undeclared report")
+
+    # Strict mode is a hard error; default mode still emits.
+    raised = False
+    try:
+        emit(p, group="X", order=1, effect_required=True)
+    except SystemExit:
+        raised = True
+    _check(raised, "effect_required did not fail on an undeclared command")
+    print("selftest: effect-honesty (warn by default, strict opt-in) passes", file=sys.stderr)
+
+
 def main() -> int:
     docs = build_docs()
     for doc in docs:
         _assert_invariants(doc)
     fixture_parity()
+    effect_honesty()
     # Spot-check the introspection actually captured the surface.
     leaf, subc = docs
     _check(any(o["name"] == "--key" and o.get("repeatable") for o in leaf["global_options"]),
