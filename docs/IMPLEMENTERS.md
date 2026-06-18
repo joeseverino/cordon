@@ -75,6 +75,13 @@ Derive the gate from the *same* declaration that feeds help and JSON, so the
 warning can never disagree with the contract. Don't hand-wire a prompt per
 command.
 
+Cordon ships a portable, zero-dependency reference PEP in
+[`harness/`](../harness/): `policy.mjs` is the decision logic (the ladder read
+from the schema, `local` / `strict` presets) and `gate.mjs` wraps a tool's
+`--describe` to allow / confirm / block before it runs. Consumers may use it
+directly or implement the same behavior natively (the bash `tools` gate does the
+latter). It is opt-in and adds no dependency to the tool it wraps.
+
 ## Validate as you build
 
 ```bash
