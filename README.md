@@ -15,6 +15,7 @@ pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
+- **Enforcement:** [`harness/`](harness/) · an opt-in, zero-dependency reference gate that risk-gates a command by its `effect` before it runs
 - **Checks verdict:** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v2.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
@@ -79,7 +80,11 @@ Plus two optional boolean tags, emitted only when `true`:
 
 **The gate principle.** A consumer is expected to risk-gate on `effect` — e.g.
 confirm before a `deploy`, fail closed when non-interactive. The signal lives in
-the contract; the policy lives in the consumer. (Reference gate:
+the contract; the policy lives in the consumer. Cordon ships a runnable reference
+for that policy: an opt-in, zero-dependency enforcement point in
+[`harness/`](harness/) — `policy.mjs` decides (`allow` / `confirm` / `block`) and
+`gate.mjs` wraps a tool's `--describe` to gate it before it runs. A consumer can
+use it directly or implement the same behavior natively. (Behavior spec:
 [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md#the-runtime-gate).)
 
 ![The effect ladder and gate: every command explicitly declares one effect plus optional network and interactive tags on an escalating blast-radius ladder — read, local_write, vault_write, remote_write, deploy; a consumer risk-gates on it before running, letting a read run freely while remote_write or deploy must confirm or fail closed when non-interactive](docs/diagrams/effect-ladder.png)
@@ -137,7 +142,7 @@ output of a portable checks runner ([`checks/`](checks/)).
 
 - **Its own schema.** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json),
   independently versioned (`schema_version: 2`); `cordon-v4.json` stays frozen.
-- **Same harness.** A verdict validates through `conformance/validate.mjs`, which
+- **Same validator.** A verdict validates through `conformance/validate.mjs`, which
   picks the schema by shape — `commands[]` → surface, `checks[]` → verdict.
 - **Same vocabulary.** Every check carries an `effect` on the ladder above, so an
   agent reads the cost of *producing* a verdict in the same terms as a command.
