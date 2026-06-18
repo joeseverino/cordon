@@ -1,0 +1,22 @@
+%%{init: {'flowchart': {'rankSpacing': 60, 'nodeSpacing': 55}}}%%
+flowchart TB
+    rules{{"Cordon decides the rules<br/>the effect ladder + the verdict"}}
+
+    subgraph peps["Enforcement points apply them"]
+        direction LR
+        h["cordon's reference gate<br/>(gate.mjs)"]
+        n["a consumer's native gate<br/>(e.g. the bash tools gate)"]
+    end
+
+    rules ==> h
+    rules ==> n
+    h --> out
+    n --> out
+
+    out["allow · confirm · block<br/>before the command runs"]
+
+    classDef good fill:#DCFCE7,stroke:#16A34A,color:#0b0620;
+    class out good;
+
+    classDef anchor stroke-width:2px;
+    class rules anchor;

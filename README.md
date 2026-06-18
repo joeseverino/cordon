@@ -92,6 +92,12 @@ use it directly or implement the same behavior natively. (Behavior spec:
 <sup>Diagram source: [`docs/diagrams/effect-ladder.mmd`](docs/diagrams/effect-ladder.mmd),
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
+![Cordon decides the rules — the effect ladder and the verdict — and two enforcement points apply them: cordon's reference gate (gate.mjs) and a consumer's native gate (e.g. the bash tools gate), each resolving to allow, confirm, or block before the command runs.](docs/diagrams/harness-gate.png)
+
+<sup>One source of rules, many enforcement points. Diagram source:
+[`docs/diagrams/harness-gate.mmd`](docs/diagrams/harness-gate.mmd),
+pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
+
 ## The contract
 
 A single JSON object per tool. Required: `ok`, `schema_version`, `name`,
