@@ -238,13 +238,89 @@ def describe_parser(
     }
 
 
-def emit(parser: argparse.ArgumentParser, *, pretty: bool = False, **kwargs: Any) -> None:
+def undeclared_effects(
+    parser: argparse.ArgumentParser, *, tool_effect_override: str | None = None
+) -> list[str]:
+    """Surfaces whose blast radius fell through to the default instead of a choice.
+
+    An effect is *declared* when :func:`set_effect` annotated the (sub)parser or,
+    at tool level, when an explicit ``effect`` override was passed. A surface that
+    relied on the ``read`` default is *undeclared* — it carries no signal that the
+    author considered its blast radius, which is the silent fail-open the contract
+    is meant to avoid.
+
+    For a tool with subcommands, the tool-level effect defaulting to ``read`` is
+    expected (the per-command effects carry the signal), so only undeclared
+    *commands* are reported. For a leaf tool, the tool itself is reported. Returns
+    surface names (command names, or the tool ``prog`` for a leaf); empty means
+    every blast radius on the surface was an explicit choice.
+    """
+    subparsers_action = next(
+        (a for a in parser._actions if isinstance(a, argparse._SubParsersAction)),
+        None,
+    )
+    if subparsers_action is not None:
+        return [
+            name
+            for name, sub in subparsers_action.choices.items()
+            if getattr(sub, _EFFECT_ATTR, None) is None
+        ]
+    if tool_effect_override is None and getattr(parser, _EFFECT_ATTR, None) is None:
+        return [parser.prog]
+    return []
+
+
+def _report_undeclared(
+    parser: argparse.ArgumentParser,
+    *,
+    tool_effect_override: str | None,
+    effect_required: bool,
+) -> None:
+    """Warn (or, under ``effect_required``, fail) on surfaces that defaulted to read.
+
+    The default posture is a stderr warning that lists the undeclared surfaces and
+    leaves the contract emitting normally — nothing breaks, an unannotated command
+    still runs as ``read``. ``effect_required`` (the strict, multi-tenant posture)
+    turns the same condition into a hard error before the contract is printed.
+    """
+    names = undeclared_effects(parser, tool_effect_override=tool_effect_override)
+    if not names:
+        return
+    listed = ", ".join(names)
+    if effect_required:
+        raise SystemExit(
+            f"cordon: {len(names)} surface(s) have no declared effect: {listed}. "
+            "effect_required is on, so an unclassified surface is a hard error. "
+            "Declare each with set_effect(...) or pass --effect."
+        )
+    print(
+        f"cordon: warning: {len(names)} surface(s) default to 'read' with no "
+        f"declared effect (a silent fail-open): {listed}. Declare with "
+        "set_effect(...) or pass --effect to make the blast radius an explicit choice.",
+        file=sys.stderr,
+    )
+
+
+def emit(
+    parser: argparse.ArgumentParser,
+    *,
+    pretty: bool = False,
+    effect_required: bool = False,
+    **kwargs: Any,
+) -> None:
     """Print ``describe_parser(parser, **kwargs)`` as JSON to stdout.
 
     ``pretty`` indents for a human; the default is the compact, byte-deterministic
     form a guard diffs. ``kwargs`` are :func:`describe_parser`'s (``group``,
     ``order``, ``effect``, ``paras``, ``examples``).
+
+    Before printing, any surface that defaulted its blast radius instead of
+    declaring it is reported: a stderr warning by default, or a hard error when
+    ``effect_required`` is set (see :func:`_report_undeclared`).
     """
+    _report_undeclared(
+        parser, tool_effect_override=kwargs.get("effect"), effect_required=effect_required
+    )
     doc = describe_parser(parser, **kwargs)
     indent = 2 if pretty else None
     print(json.dumps(doc, indent=indent, sort_keys=False))
@@ -272,7 +348,14 @@ def describe_main(
     """
     argv = sys.argv[1:] if argv is None else argv
     if "--describe" in argv:
-        emit(parser, group=group, order=order, pretty="--pretty" in argv, **kwargs)
+        emit(
+            parser,
+            group=group,
+            order=order,
+            pretty="--pretty" in argv,
+            effect_required="--effect-required" in argv,
+            **kwargs,
+        )
         raise SystemExit(0)
 
 
@@ -281,6 +364,7 @@ __all__ = [
     "describe_main",
     "emit",
     "set_effect",
+    "undeclared_effects",
     "SCHEMA_VERSION",
     "EFFECTS",
 ]
