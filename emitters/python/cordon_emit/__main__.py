@@ -49,10 +49,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-o", "--order", required=True, type=int, help="inventory order")
     ap.add_argument("-e", "--effect", help="tool-level effect (default: read)")
     ap.add_argument("--pretty", action="store_true", help="indent the JSON")
+    ap.add_argument(
+        "--effect-required",
+        action="store_true",
+        help="fail instead of warning when a command's blast radius defaults to read "
+        "(the strict, multi-tenant posture; off by default for local use)",
+    )
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
 
     parser = _load_parser(args.target)
-    emit(parser, group=args.group, order=args.order, effect=args.effect, pretty=args.pretty)
+    emit(
+        parser,
+        group=args.group,
+        order=args.order,
+        effect=args.effect,
+        pretty=args.pretty,
+        effect_required=args.effect_required,
+    )
     return 0
 
 
