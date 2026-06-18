@@ -19,6 +19,14 @@
       "requires": ["python3"],
       "exec": { "cmd": "python3", "args": ["emitters/python/selftest.py"] },
       "fix": "Run `python3 emitters/python/selftest.py` and fix the reported divergence; if the contract shape changed legitimately, update the emitter and fixtures together."
+    },
+    {
+      "id": "harness",
+      "name": "Harness verdict self-test",
+      "effect": "read",
+      "requires": ["node"],
+      "exec": { "cmd": "node", "args": ["harness/selftest.mjs"] },
+      "fix": "Run `node harness/selftest.mjs` and fix the reported divergence in harness/policy.mjs."
     }
   ]
 }
