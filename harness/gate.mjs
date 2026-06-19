@@ -86,4 +86,11 @@ async function main(argv) {
   return run.status ?? 1;
 }
 
-main(process.argv.slice(2)).then((code) => process.exit(code));
+main(process.argv.slice(2)).then(
+  (code) => process.exit(code),
+  (err) => {
+    // A bad tool or a non-contract --describe shouldn't dump a stack trace.
+    console.error(`cordon: ${err.message}`);
+    process.exit(1);
+  },
+);
