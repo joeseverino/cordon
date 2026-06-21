@@ -53,10 +53,30 @@ jobs:
         # they were the repo's. cordon is public, so no auth; shallow for speed.
         run: git clone --depth 1 --branch "${{ inputs.cordon-ref }}" https://github.com/joeseverino/cordon "$RUNNER_TEMP/cordon"
 
-      - name: Set up Node (the engine runs on it)
+      # Honor the caller's Node pin (.nvmrc) so the Repository Policy nvmrc check
+      # agrees and the caller's checks run on the Node they target; fall back to
+      # 24 when a repo pins nothing. cordon's engine runs on the fleet's pinned
+      # majors. Two steps, not one ternary: a GitHub Actions `&& '' || '24'`
+      # expression returns '24' even when .nvmrc exists (empty string is falsy),
+      # and a non-empty node-version overrides node-version-file.
+      #
+      # setup-node v5 also defaults its package-manager cache on, auto-detecting
+      # `packageManager` in package.json — a pnpm repo then fails ("Unable to
+      # locate executable file: pnpm") before corepack enables it. The gate
+      # installs deps explicitly below, so disable that cache on both paths.
+      - name: Set up Node from the caller's .nvmrc (pinned repos)
+        if: ${{ hashFiles('.nvmrc') != '' }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Set up Node — default (repos with no .nvmrc)
+        if: ${{ hashFiles('.nvmrc') == '' }}
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "24"
+          package-manager-cache: false
 
       - name: Install cordon's engine deps
         run: npm --prefix "$RUNNER_TEMP/cordon" ci
@@ -71,13 +91,22 @@ jobs:
         if: ${{ hashFiles('pyproject.toml') != '' }}
         run: uv sync --extra dev || uv sync || true
 
-      - name: Install the caller's npm deps (Node repos only)
+      - name: Install the caller's npm deps (npm repos only)
         # The caller owns the workspace root; cordon's engine lives in RUNNER_TEMP,
         # out of the tree. A repo with a lockfile gets its own deps so node-based
         # checks (catalog `check:*` scripts, stylelint, a `commands[]` spec like
         # tsc) can run.
         if: ${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
+
+      - name: Install the caller's pnpm deps (pnpm repos only)
+        # The fleet's Node standard is pnpm (corepack-pinned via `packageManager`).
+        # corepack ships with Node, so enable it and let it honor the pinned pnpm;
+        # --frozen-lockfile keeps CI reproducible. Mirrors the npm path above.
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
 
       - name: Provision common check tooling
         env:
