@@ -166,13 +166,14 @@ export function undeclaredEffects(spec) {
  * @param {object} pkg  the parsed package.json
  * @param {{ effects: Record<string,string>, group: string, order: number,
  *           name?: string, description?: string, paras?: string[],
- *           network?: Record<string,boolean>, interactive?: Record<string,boolean> }} opts
+ *           summaries?: Record<string,string>, network?: Record<string,boolean>,
+ *           interactive?: Record<string,boolean> }} opts
  *   `effects` maps each EXPOSED script name to its blast radius (and is the
- *   inclusion list). `network`/`interactive` optionally tag a script.
+ *   inclusion list). `summaries`, `network`, and `interactive` optionally tag a script.
  * @returns a spec for renderSurface / emitMain.
  */
 export function describeScripts(pkg, opts = {}) {
-  const { effects, group, order, network = {}, interactive = {} } = opts;
+  const { effects, group, order, summaries = {}, network = {}, interactive = {} } = opts;
   if (!pkg || typeof pkg !== 'object' || typeof pkg.scripts !== 'object') {
     throw new Error('cordon: describeScripts needs a package.json with a `scripts` object');
   }
@@ -188,8 +189,7 @@ export function describeScripts(pkg, opts = {}) {
     assertEffect(effect, `script ${JSON.stringify(script)}`);
     const command = {
       name: script,
-      // npm scripts carry no help text — emit nothing rather than fabricate one.
-      summary: '',
+      summary: summaries[script] ?? '',
       effect,
       // DERIVED, not declared: the literal command the script runs is who owns
       // the real surface (flags/args). Re-derives when the script changes.
