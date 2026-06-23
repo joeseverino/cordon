@@ -392,7 +392,17 @@ async function main() {
   // green local run leaves no file behind. gitignored; never committed.
   const wroteReport = failed.length > 0 || forceReport;
   if (wroteReport) {
-    fs.writeFileSync(reportPath, renderReport(results, failed), 'utf8');
+    const md = renderReport(results, failed);
+    fs.writeFileSync(reportPath, md, 'utf8');
+    // Publish the report straight to the CI run summary when present — the engine
+    // owns surfacing its own result, so a green OR red gate always shows its
+    // table, even if the calling workflow never cats the file. This closes the
+    // recurring "the gate failed but there's no cordon summary" gap: a non-zero
+    // exit must never swallow the report.
+    const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+    if (stepSummary) {
+      try { fs.appendFileSync(stepSummary, `${md}\n`); } catch { /* best-effort: never let publishing the report fail the run */ }
+    }
   } else if (fs.existsSync(reportPath)) {
     fs.unlinkSync(reportPath);
   }

@@ -81,6 +81,16 @@ try {
   const conform = spawnSync('node', ['conformance/validate.mjs', verdictFile], { cwd: repo, encoding: 'utf8' });
   check('the live verdict validates against cordon-checks-v2', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
 
+  // A failing gate must publish its report to the CI step summary, so a red run
+  // is never silent (the recurring "exit 1, no cordon summary"). The engine owns
+  // this — it must not depend on the calling workflow catting a file.
+  const summaryFile = path.join(dir, 'step-summary.md');
+  const sumRun = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json'],
+    { cwd: repo, encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile } });
+  const summaryText = fs.existsSync(summaryFile) ? fs.readFileSync(summaryFile, 'utf8') : '';
+  check('a failing gate exits non-zero', sumRun.status === 1, `got ${sumRun.status}`);
+  check('a failing gate publishes its report to $GITHUB_STEP_SUMMARY', /Cordon checks —/.test(summaryText));
+
   // A bare repo (no build, no config) runs only the always-available invariants,
   // and the post-build ones skip rather than fail — the lean default posture.
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-selftest-bare-'));
