@@ -216,8 +216,9 @@ invariant.
 The human render of the same `results` the `--json` verdict derives from — a
 whole-picture **status table** (every check, not just failures, so a *skip* is
 never mistaken for a *pass*), then each failure's `fix` + `rerun` + the captured
-output folded in a `<details>`, then a provenance footer. Markdown, so a CI step
-(`cat … >> "$GITHUB_STEP_SUMMARY"`) renders it inline in the run summary.
+output folded in a `<details>`, then a provenance footer. Markdown, and in CI the
+engine writes it straight to `$GITHUB_STEP_SUMMARY`, so it renders inline in the
+run summary on a green or red gate — no cat-after-the-fact a failing exit could skip.
 
 It is written **on failure** by default, so a green local run leaves no file
 behind. `--report` writes it even when green (the always-there record), and a CI

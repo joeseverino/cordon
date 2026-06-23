@@ -14,10 +14,13 @@ import { spawn } from 'node:child_process';
 export const DEFAULT_TIMEOUT_MS = 5 * 60_000;
 
 // Spawn `cmd args` and ALWAYS resolve (never reject) with:
-//   { code, stdout, stderr, output, duration, timedOut }
+//   { code, spawnFailed, stdout, stderr, output, duration, timedOut }
 // `code` is non-zero whenever the command failed for any reason — non-zero exit,
 // signal kill, timeout, or failure to spawn at all — so a caller branches on one
-// field. options: cwd, env (merged over process.env), timeout (ms; 0 disables),
+// field. `spawnFailed` is true ONLY when the process could not start at all (a
+// missing binary / ENOENT): a setup gap, not a content failure, so a caller can
+// fail-soft on it instead of reporting the check red. options: cwd, env (merged
+// over process.env), timeout (ms; 0 disables),
 // stdio: 'capture' (default) buffers stdout/stderr; 'inherit' streams to the
 // terminal (and stdout/stderr come back empty). `output` is the ANSI-stripped
 // combined stream, ready for a deterministic report.
@@ -48,6 +51,7 @@ export function runProcess(cmd, args, options = {}) {
       const finalCode = spawnError || timedOut ? (code || 1) : (code ?? 1);
       resolve({
         code: finalCode,
+        spawnFailed: !!spawnError,
         stdout,
         stderr,
         output: stripAnsi(`${stdout}\n${stderr}`),

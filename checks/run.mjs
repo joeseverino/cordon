@@ -295,6 +295,14 @@ async function runOne(entry, caps) {
   if (unmet.length) {
     return { ...base, status: 'skip', unmet, detail: `requires ${unmet.join(', ')} — not available here` };
   }
+  // A command whose binary can't be spawned at all (ENOENT) is a setup gap, not
+  // dirty code — skip fail-soft (like an unmet `requires`) so a missing tool can
+  // never false-RED the gate. The fix is to declare the tool in `requires` (so
+  // it skips before spawn) or install it; the note says which.
+  const spawnSkip = (r) => ({
+    ...base, status: 'skip', durationMs: r.duration, unmet: [entry.exec.cmd],
+    detail: `command not found: ${entry.exec.cmd} — add it to this check's \`requires\`, or install it`,
+  });
   const start = Date.now();
   if (entry.kind === 'invariant') {
     let r;
@@ -316,6 +324,7 @@ async function runOne(entry, caps) {
     const parts = [];
     for (const v of variants) {
       const r = await runProcess(entry.exec.cmd, v.args, { cwd: root, env: entry.exec.env, timeout: entry.timeout });
+      if (r.spawnFailed) return spawnSkip({ duration: durationMs + r.duration });
       durationMs += r.duration;
       if (r.code !== 0) failed = true;
       parts.push(`── ${entry.name} [${v.label}] — ${r.code === 0 ? 'ok' : 'FAILED'} ──\n${r.output.trim()}`);
@@ -329,6 +338,7 @@ async function runOne(entry, caps) {
     };
   }
   const r = await runProcess(entry.exec.cmd, entry.exec.args, { cwd: root, env: entry.exec.env, timeout: entry.timeout });
+  if (r.spawnFailed) return spawnSkip(r);
   return { ...base, status: r.code === 0 ? 'pass' : 'fail', durationMs: r.duration, detail: r.output.trim() };
 }
 
@@ -382,7 +392,17 @@ async function main() {
   // green local run leaves no file behind. gitignored; never committed.
   const wroteReport = failed.length > 0 || forceReport;
   if (wroteReport) {
-    fs.writeFileSync(reportPath, renderReport(results, failed), 'utf8');
+    const md = renderReport(results, failed);
+    fs.writeFileSync(reportPath, md, 'utf8');
+    // Publish the report straight to the CI run summary when present — the engine
+    // owns surfacing its own result, so a green OR red gate always shows its
+    // table, even if the calling workflow never cats the file. This closes the
+    // recurring "the gate failed but there's no cordon summary" gap: a non-zero
+    // exit must never swallow the report.
+    const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+    if (stepSummary) {
+      try { fs.appendFileSync(stepSummary, `${md}\n`); } catch { /* best-effort: never let publishing the report fail the run */ }
+    }
   } else if (fs.existsSync(reportPath)) {
     fs.unlinkSync(reportPath);
   }

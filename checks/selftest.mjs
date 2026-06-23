@@ -38,6 +38,7 @@ function scratchRepo() {
     commands: [
       { id: 'smoke', name: 'Smoke', effect: 'read', exec: { cmd: 'true' } },
       { id: 'needs-tool', name: 'Needs missing tool', effect: 'local_write', requires: ['definitely-not-a-real-binary-xyz'], exec: { cmd: 'true' } },
+      { id: 'bad-spawn', name: 'Undeclared missing binary', effect: 'read', exec: { cmd: 'definitely-not-a-real-binary-xyz', args: ['check'] } },
       { id: 'will-fail', name: 'Will fail', effect: 'read', exec: { cmd: 'false' } },
     ],
   }, null, 2));
@@ -66,6 +67,10 @@ try {
   check('command with a failing exit fails', by['will-fail']?.status === 'fail');
   check('command gated by a missing binary skips', by['needs-tool']?.status === 'skip');
   check('the skip names the unmet capability', by['needs-tool']?.unmet?.includes('definitely-not-a-real-binary-xyz'));
+  // A command whose binary can't be spawned (ENOENT) and was NOT declared in
+  // requires must SKIP fail-soft, never FAIL — the false-RED the gate must avoid.
+  check('an undeclared missing binary skips, not fails', by['bad-spawn']?.status === 'skip', by['bad-spawn']?.status);
+  check('the spawn skip names the missing command in unmet', by['bad-spawn']?.unmet?.includes('definitely-not-a-real-binary-xyz'), JSON.stringify(by['bad-spawn']?.unmet));
   check('multi-phase run emits phase on every row', verdict.checks.every((c) => typeof c.phase === 'string'));
   check('post-build invariants run after build-output exists', by['internal-links']?.phase === 'post-build');
 
@@ -75,6 +80,16 @@ try {
   fs.writeFileSync(verdictFile, JSON.stringify(verdict));
   const conform = spawnSync('node', ['conformance/validate.mjs', verdictFile], { cwd: repo, encoding: 'utf8' });
   check('the live verdict validates against cordon-checks-v2', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
+
+  // A failing gate must publish its report to the CI step summary, so a red run
+  // is never silent (the recurring "exit 1, no cordon summary"). The engine owns
+  // this — it must not depend on the calling workflow catting a file.
+  const summaryFile = path.join(dir, 'step-summary.md');
+  const sumRun = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json'],
+    { cwd: repo, encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile } });
+  const summaryText = fs.existsSync(summaryFile) ? fs.readFileSync(summaryFile, 'utf8') : '';
+  check('a failing gate exits non-zero', sumRun.status === 1, `got ${sumRun.status}`);
+  check('a failing gate publishes its report to $GITHUB_STEP_SUMMARY', /Cordon checks —/.test(summaryText));
 
   // A bare repo (no build, no config) runs only the always-available invariants,
   // and the post-build ones skip rather than fail — the lean default posture.

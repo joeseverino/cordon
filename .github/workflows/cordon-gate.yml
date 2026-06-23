@@ -127,9 +127,4 @@ jobs:
       - name: Run cordon checks
         env:
           CORDON_HOME: ${{ runner.temp }}/cordon
-        run: |
-          set +e
-          node "$CORDON_HOME/checks/run.mjs" --root "$PWD"
-          status=$?
-          [ -f .cordon-checks-report.md ] && cat .cordon-checks-report.md >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+        run: node "$CORDON_HOME/checks/run.mjs" --root "$PWD"
