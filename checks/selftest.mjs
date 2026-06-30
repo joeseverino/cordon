@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parsePyproject, importableModule } from './lib/pyproject.mjs';
 import { CATALOG } from './catalog.mjs';
+import dispatchDups from './lib/dispatch-dups.mjs';
+import batsAssertions from './lib/bats-assertions.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -248,6 +250,97 @@ try {
     fs.rmSync(bin2, { recursive: true, force: true });
   } finally {
     fs.rmSync(nodir, { recursive: true, force: true });
+  }
+}
+
+// — dispatch-dups & bats-assertions: the two source-scanning invariants. A dirty
+// repo must FAIL each (duplicate dispatch arm / subparser id; an unchained bats
+// assertion), a clean repo must PASS — and the dispatch-dups scan must ignore a
+// parser id named only in a docstring (the false-RED to avoid). —
+{
+  const dirty = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-scan-dirty-'));
+  try {
+    // A __main__.py with a duplicate subparser id, a duplicate dispatch arm, and
+    // a parser id that exists ONLY in a docstring (must not be flagged).
+    fs.writeFileSync(path.join(dirty, '__main__.py'), [
+      'import argparse',
+      'def main():',
+      '    """Usage: register a command with sub.add_parser("ghost")."""',
+      '    p = argparse.ArgumentParser()',
+      '    sub = p.add_subparsers(dest="command")',
+      '    sub.add_parser("sync")',
+      '    sub.add_parser("sync")',
+      '    args = p.parse_args()',
+      '    if args.command == "backfill":',
+      '        return 1',
+      '    elif args.command == "backfill":',
+      '        return 2',
+      ''].join('\n'));
+    // A .bats file with an unchained earlier assertion (dead under bats).
+    fs.writeFileSync(path.join(dirty, 'bad.bats'), [
+      '@test "two unchained assertions" {',
+      '  run echo hi',
+      '  [ "$status" -eq 0 ]',
+      '  [ "$output" = "hi" ]',
+      '}',
+      ''].join('\n'));
+    const { verdict, code } = runJson(dirty);
+    const by = rowsById(verdict);
+    check('dispatch-dups fails on a dirty dispatch file', by['dispatch-dups']?.status === 'fail', JSON.stringify(by['dispatch-dups']));
+    check('bats-assertions fails on an unchained assertion', by['bats-assertions']?.status === 'fail', JSON.stringify(by['bats-assertions']));
+    check('a dirty scan makes the gate red', code === 1, `got ${code}`);
+    check('both scan checks carry fix + rerun', Boolean(by['dispatch-dups']?.fix && by['dispatch-dups']?.rerun && by['bats-assertions']?.fix));
+
+    // The detail isn't on the --json row (it rides the report), so assert the
+    // scanners' detail directly — incl. that a parser id named ONLY in a
+    // docstring is NOT flagged (the false-RED to avoid).
+    const dd = dispatchDups.run({ root: dirty });
+    check('dispatch-dups detail names the duplicate subparser id', dd.ok === false && /duplicate subparser id "sync"/.test(dd.detail), dd.detail);
+    check('dispatch-dups detail names the duplicate dispatch arm', /duplicate dispatch arm `args\.command == "backfill"`/.test(dd.detail), dd.detail);
+    check('dispatch-dups ignores a parser id only in a docstring', !/ghost/.test(dd.detail), dd.detail);
+    const ba = batsAssertions.run({ root: dirty });
+    check('bats-assertions detail names the unchained test', ba.ok === false && /unchained assertion/.test(ba.detail), ba.detail);
+  } finally {
+    fs.rmSync(dirty, { recursive: true, force: true });
+  }
+
+  const clean = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-scan-clean-'));
+  try {
+    fs.writeFileSync(path.join(clean, '__main__.py'), [
+      'import argparse',
+      'p = argparse.ArgumentParser()',
+      'sub = p.add_subparsers(dest="command")',
+      'sub.add_parser("sync")',
+      'sub.add_parser("ship")',
+      'args = p.parse_args()',
+      'if args.command == "sync":',
+      '    pass',
+      'elif args.command == "ship":',
+      '    pass',
+      ''].join('\n'));
+    fs.writeFileSync(path.join(clean, 'ok.bats'), [
+      '@test "chained assertions" {',
+      '  run echo hi',
+      '  [ "$status" -eq 0 ] &&',
+      '  [ "$output" = "hi" ]',
+      '}',
+      ''].join('\n'));
+    const by = rowsById(runJson(clean).verdict);
+    check('dispatch-dups passes a clean dispatch file', by['dispatch-dups']?.status === 'pass', JSON.stringify(by['dispatch-dups']));
+    check('bats-assertions passes chained assertions', by['bats-assertions']?.status === 'pass', JSON.stringify(by['bats-assertions']));
+  } finally {
+    fs.rmSync(clean, { recursive: true, force: true });
+  }
+
+  // A repo with neither a dispatch file nor .bats: both scans skip fail-soft.
+  const none = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-scan-none-'));
+  try {
+    fs.writeFileSync(path.join(none, 'README.md'), '# nothing to scan\n');
+    const by = rowsById(runJson(none).verdict);
+    check('dispatch-dups skips when there is no dispatch file', by['dispatch-dups']?.status === 'skip', by['dispatch-dups']?.status);
+    check('bats-assertions skips when there are no .bats files', by['bats-assertions']?.status === 'skip', by['bats-assertions']?.status);
+  } finally {
+    fs.rmSync(none, { recursive: true, force: true });
   }
 }
 
