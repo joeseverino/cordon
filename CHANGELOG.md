@@ -12,6 +12,33 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [1.3.0](https://github.com/joeseverino/cordon/compare/v1.2.0...v1.3.0) (2026-06-30)
+
+
+### Features
+
+* **checks:** dispatch-dups and bats-assertions source-scan invariants ([#45](https://github.com/joeseverino/cordon/issues/45)) ([eaa766d](https://github.com/joeseverino/cordon/commit/eaa766d97b0643e9534a7b977b2a9e43f1aad934))
+* **checks:** shell repos are first-class in the catalog (shebang-aware shellcheck + bats) ([e0beb5c](https://github.com/joeseverino/cordon/commit/e0beb5ceb5ffe1ca84877d035b87b6741fcd21b8))
+* **checks:** shell repos first-class in the catalog (shebang-aware shellcheck + bats) ([7995217](https://github.com/joeseverino/cordon/commit/79952176dac7846014051ad91bd6182cd13c14b1))
+* describeScripts summaries in the node emitter ([dd85cb7](https://github.com/joeseverino/cordon/commit/dd85cb7c606304ae8528217bbdd9c50b6b2c0c7e))
+* describeScripts summaries in the node emitter ([bb499ea](https://github.com/joeseverino/cordon/commit/bb499ea9fc905ce9a8a2cdfaf46f5bc77a74c8b3))
+* **emitters:** add the Node reference emitter (introspect package.json) ([f1f6d81](https://github.com/joeseverino/cordon/commit/f1f6d81c71112789447cb26e5b60dcca8ba30475))
+* **emitters:** Node reference emitter — introspect package.json ([36c2df7](https://github.com/joeseverino/cordon/commit/36c2df7e8d0434affac3bf75015c9df2fb28a0ad))
+* **emitter:** surface undeclared effects instead of silently defaulting to read ([64f3628](https://github.com/joeseverino/cordon/commit/64f3628d79ef998150db74a0c8023e56f4a8893d))
+* **emitter:** surface undeclared effects instead of silently defaulting to read ([d2598bd](https://github.com/joeseverino/cordon/commit/d2598bda97151ba1214aca7e80317e061d2b6169))
+* **harness:** effect-ladder verdict logic (PDP core) ([0404fab](https://github.com/joeseverino/cordon/commit/0404fab76b15bdb5d947ebc75215081d4da15b77))
+* **harness:** reference enforcement point + docs + CI ([86fdc86](https://github.com/joeseverino/cordon/commit/86fdc865d50775e9db9d0805784f5e8a46734eb0))
+* **harness:** reference enforcement point for the effect ladder ([b1d7d5c](https://github.com/joeseverino/cordon/commit/b1d7d5c8bfbd222b594ecc720e99d6c9daf6fabc))
+
+
+### Bug Fixes
+
+* **checks:** legible gate on failure — spawn-skip + self-published summary ([#44](https://github.com/joeseverino/cordon/issues/44)) ([ea4b9fe](https://github.com/joeseverino/cordon/commit/ea4b9fedaa76ad7dfb4ba907013c032a659ebf88))
+* **gate:** post the checks summary on failed runs (set +e) ([9e39e83](https://github.com/joeseverino/cordon/commit/9e39e833212c3b4c1c56e108c732119fdbd3cb2c))
+* **gate:** post the checks summary on failed runs (set +e) ([9aaea7e](https://github.com/joeseverino/cordon/commit/9aaea7ed94d2299eb67b83b38ccf06105eee6076))
+* **gate:** support pnpm repos (corepack) and drop the PM auto-cache ([3c186d9](https://github.com/joeseverino/cordon/commit/3c186d9dc30436f0402e491a346ba638f086544d))
+* **harness:** clean error instead of a stack trace on a bad tool/contract ([8891580](https://github.com/joeseverino/cordon/commit/8891580748ceaf35be465626ad061c83e43d28a0))
+
 ## [1.2.0](https://github.com/joeseverino/cordon/compare/v1.1.0...v1.2.0) (2026-06-16)
 
 
