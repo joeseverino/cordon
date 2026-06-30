@@ -46,8 +46,8 @@ export const CATALOG = [
   {
     id: 'ruff', name: 'Ruff lint', effect: 'read',
     requires: ['file:pyproject.toml', 'file:uv.lock', 'uv'],
-    exec: { cmd: 'uv', args: ['run', 'ruff', 'check', 'src', 'tests'] },
-    fix: 'Run `uv run ruff check --fix src tests`, or fix the reported lines.',
+    exec: { cmd: 'uv', args: ['run', 'ruff', 'check'] },
+    fix: 'Run `uv run ruff check --fix`, or fix the reported lines.',
   },
   {
     id: 'pytest', name: 'Pytest', effect: 'read',

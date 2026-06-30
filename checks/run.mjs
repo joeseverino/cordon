@@ -419,7 +419,7 @@ async function main() {
         ...(r.network ? { network: true } : {}),
         ...(r.interactive ? { interactive: true } : {}),
         ...(r.unmet ? { unmet: r.unmet } : {}),
-        ...(r.status === 'fail' ? { fix: r.fix, rerun: rerunFor(entryById(r.id)) } : {}),
+        ...(r.status === 'fail' ? { fix: r.fix, rerun: rerunFor(entryById(r.id)), detail: clipOutput(r.detail) } : {}),
       })),
     }, null, 2));
   } else if (failed.length === 0) {

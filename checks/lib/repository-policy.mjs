@@ -10,11 +10,11 @@
 //   ctx    = { root, config }   — root is the repo, config is this check's slice
 //   run -> { ok, detail }  |  { skipped:true, detail }   (never throws for a
 //          policy violation; throws only on a genuinely broken environment)
-import { spawnSync } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 import { defaultsOf } from './config.mjs';
+import { isGitRepo, repoFiles } from './git.mjs';
 
 // The check's config seam, declared once as JSON Schema and carried on the
 // default export — see idempotence.mjs for the pattern. config-schema.mjs
@@ -59,17 +59,6 @@ const DEFAULTS = defaultsOf(configSchema);
 
 const CONFLICT_COPY = / [0-9]+(?:\.[^/]*)?$/; // "report 2", "logo 3.png" (iCloud)
 
-function git(root, args) {
-  const r = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
-  if (r.status !== 0) throw new Error(r.stderr || `git ${args.join(' ')} exited ${r.status}`);
-  return r.stdout.trim();
-}
-
-function isGitRepo(root) {
-  const r = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8' });
-  return r.status === 0 && r.stdout.trim() === 'true';
-}
-
 const readJson = (root, file) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
 const exists = (root, file) => fs.existsSync(path.join(root, file));
 
@@ -89,7 +78,7 @@ export default {
     const failures = [];
     const fail = (m) => failures.push(m);
 
-    const tracked = git(root, ['ls-files']).split('\n').filter(Boolean);
+    const tracked = repoFiles(root);
 
     // — Universal: secrets, build output, and tracked conflict copies —
     const dirRe = new RegExp(`(^|/)(?:${cfg.forbiddenDirs.join('|')})(/|$)`);

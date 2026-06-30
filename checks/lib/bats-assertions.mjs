@@ -6,7 +6,7 @@
 // exist, no config.
 import fs from 'node:fs';
 import path from 'node:path';
-import { listFiles } from './repo-files.mjs';
+import { listFiles } from './git.mjs';
 
 const TEST_OPEN = /^\s*@test\b.*\{\s*$/;
 const ASSERTION = /^\[\[?[\s(]/;        // a line beginning a `[ ... ]` / `[[ ... ]]` test

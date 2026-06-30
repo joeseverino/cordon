@@ -77,6 +77,10 @@
           "type": "string",
           "minLength": 1,
           "$comment": "The exact, deterministic command that reproduces this one check standalone. Required on a failed check."
+        },
+        "detail": {
+          "type": "string",
+          "$comment": "The failure's specifics — which link/line/path/output — the same text the human report folds in. Emitted on a failed check so an agent acts on the --json verdict without parsing the markdown report."
         }
       },
       "if": {

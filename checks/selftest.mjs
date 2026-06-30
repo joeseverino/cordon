@@ -290,6 +290,7 @@ try {
     check('bats-assertions fails on an unchained assertion', by['bats-assertions']?.status === 'fail', JSON.stringify(by['bats-assertions']));
     check('a dirty scan makes the gate red', code === 1, `got ${code}`);
     check('both scan checks carry fix + rerun', Boolean(by['dispatch-dups']?.fix && by['dispatch-dups']?.rerun && by['bats-assertions']?.fix));
+    check('a failed --json row carries its detail (agent contract)', /duplicate subparser id/.test(by['dispatch-dups']?.detail || ''), by['dispatch-dups']?.detail);
 
     // The detail isn't on the --json row (it rides the report), so assert the
     // scanners' detail directly — incl. that a parser id named ONLY in a
