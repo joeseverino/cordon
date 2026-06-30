@@ -226,6 +226,16 @@
       "additionalProperties": false,
       "description": "Config for the \"Structural HTML\" check — no options."
     },
+    "dispatch-dups": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"CLI Dispatch Duplicates\" check — no options."
+    },
+    "bats-assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"Bats Assertion Chaining\" check — no options."
+    },
     "ruff": {
       "type": "object",
       "additionalProperties": false,

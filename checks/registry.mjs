@@ -28,12 +28,16 @@ import repositoryPolicy from './lib/repository-policy.mjs';
 import idempotence from './lib/idempotence.mjs';
 import internalLinks from './lib/internal-links.mjs';
 import structuralHtml from './lib/structural-html.mjs';
+import dispatchDups from './lib/dispatch-dups.mjs';
+import batsAssertions from './lib/bats-assertions.mjs';
 
 export const CHECKS = [
   repositoryPolicy,
   idempotence,
   internalLinks,
   structuralHtml,
+  dispatchDups,
+  batsAssertions,
 ];
 
 export const checkById = (id) => CHECKS.find((c) => c.id === id);
