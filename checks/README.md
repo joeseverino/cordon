@@ -189,7 +189,7 @@ so v1 verdicts stay valid). The schema enforces the signals an agent needs: a
 `fail` check **must** carry `fix` + `rerun`, every check carries its own `effect`,
 and `unmet` may ride only a `skip`.
 
-The two signals the engine adds over v1:
+The signals the engine adds over v1:
 
 - **`phase`** — where the check ran around the build. Emitted on every row when
   the run spans more than one phase; omitted when it's a single (pre-build) pass,
@@ -197,6 +197,10 @@ The two signals the engine adds over v1:
 - **`unmet`** — the capabilities a skipped check needed but the environment
   lacked. This is what makes a skip *legible*: an agent reads *why* playwright
   skipped (not installed vs wrong platform), not just that it did.
+- **`detail`** — on a failed row, the failure's specifics (which link/line/path,
+  or the captured command output) — the same text the human report folds in. So
+  an agent acts on the `--json` verdict directly, without parsing the markdown
+  report.
 
 `effect` is cordon's blast-radius ladder applied to the check itself — the cost of
 *producing* the row, in the same vocabulary a command's `--describe` uses. A
