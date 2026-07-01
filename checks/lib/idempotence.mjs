@@ -13,6 +13,7 @@
 // for: never silently run a build behind a "checks" call that looked read-only.
 import { spawnSync } from 'node:child_process';
 import { defaultsOf } from './config.mjs';
+import { isGitRepo, worktreeStatus } from './git.mjs';
 
 // The check's config seam, declared once as JSON Schema and carried on the
 // default export. config-schema.mjs composes it into the editor/AI-facing
@@ -39,14 +40,6 @@ const configSchema = {
 
 const DEFAULTS = defaultsOf(configSchema);
 
-function isGitRepo(root) {
-  const r = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8' });
-  return r.status === 0 && r.stdout.trim() === 'true';
-}
-
-const worktreeState = (root) =>
-  spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).stdout;
-
 export default {
   id: 'idempotence',
   name: 'Worktree Idempotence',
@@ -66,13 +59,13 @@ export default {
 
     // Compare against the state *before* the run, so a pre-existing dirty tree
     // is fine — we only flag mutation the command itself introduces.
-    const before = worktreeState(root);
+    const before = worktreeStatus(root);
     const r = spawnSync(cfg.command, [], { cwd: root, encoding: 'utf8', shell: true, timeout: cfg.timeoutMs });
     if (r.status !== 0) {
       const out = (r.stderr || r.stdout || '').trim();
       return { ok: false, detail: `command \`${cfg.command}\` exited ${r.status ?? '(signal ' + r.signal + ')'}\n${out}` };
     }
-    const after = worktreeState(root);
+    const after = worktreeStatus(root);
     if (before !== after) {
       return {
         ok: false,

@@ -11,7 +11,7 @@
 // docstring example isn't mistaken for a real registration. Read-only, no config.
 import fs from 'node:fs';
 import path from 'node:path';
-import { listFiles } from './repo-files.mjs';
+import { listFiles } from './git.mjs';
 
 // Blank out triple-quoted blocks (preserving newlines for line numbers) and
 // trailing `#` comments, so the scan sees code, not prose. Conservative by
