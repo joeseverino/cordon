@@ -145,6 +145,7 @@ node checks/run.mjs --root <dir>    # over another repo
 node checks/run.mjs --phase <p>     # only pre-build | build | post-build
 node checks/run.mjs --only <id>     # one check (this is the printed rerun line)
 node checks/run.mjs --json          # the agent/CI contract (sole stdout)
+node checks/run.mjs --fix           # run declared repairs on failures, re-run to prove them
 node checks/run.mjs --list          # the checks that apply to this repo
 node checks/run.mjs --schema        # the cordon.checks.json JSON Schema
 ```
@@ -155,6 +156,28 @@ harness — by `$CORDON_HOME`, never vendored:
 ```sh
 node "$CORDON_HOME/checks/run.mjs" --root "$PWD"
 ```
+
+### Autofix — `--fix`
+
+The gate stops at *reporting* by default; `--fix` lets a check that declared a
+mechanical repair also *apply* it. Three seams declare one, all optional:
+
+- an **invariant** exports `repair(ctx)` alongside `run(ctx)` (registry.mjs
+  documents the contract);
+- a **catalog or repo command** declares `fixExec` — the repair process to spawn
+  (the catalog's `ruff` ships `uv run ruff check --fix`);
+- a **discovered `check:<name>` script** pairs automatically with a
+  `fix:<name>` script in the same package.json — declare the pair once, where
+  you already keep tasks.
+
+The loop is repair → **re-run the same check** → only a green re-run reports
+`fixed` (a repair is proven by its verifier, never trusted). A repair that
+errors or doesn't heal leaves the original failure, annotated. Checks without a
+repair fail exactly as before, and a plain run never mutates — repairs run only
+under the explicit `--fix`. Fixed rows carry their `repair` audit trail in the
+verdict (`fixed[]` + status `fixed`, `schema_version 3`); the worktree changed,
+so review and commit what the repair wrote. CI runs the plain gate — `--fix` is
+the human/agent inner loop, not a CI mode.
 
 ## The `--json` contract
 

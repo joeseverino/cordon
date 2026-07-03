@@ -48,6 +48,9 @@ export const CATALOG = [
     requires: ['file:pyproject.toml', 'file:uv.lock', 'uv'],
     exec: { cmd: 'uv', args: ['run', 'ruff', 'check'] },
     fix: 'Run `uv run ruff check --fix`, or fix the reported lines.',
+    // The autofix seam: --fix runs ruff's own fixer, then re-runs the lint to
+    // prove it (rules with no autofix still fail and need a human).
+    fixExec: { cmd: 'uv', args: ['run', 'ruff', 'check', '--fix'] },
   },
   {
     id: 'pytest', name: 'Pytest', effect: 'read',

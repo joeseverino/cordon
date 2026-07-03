@@ -25,11 +25,11 @@ const root = path.resolve(import.meta.dirname, '..');
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const compile = (file) => ajv.compile(JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')));
 const validateSurface = compile('schema/cordon-v4.json');
-const checksValidators = { 1: compile('schema/cordon-checks-v1.json'), 2: compile('schema/cordon-checks-v2.json') };
+const checksValidators = { 1: compile('schema/cordon-checks-v1.json'), 2: compile('schema/cordon-checks-v2.json'), 3: compile('schema/cordon-checks-v3.json') };
 // A checks verdict pins its schema by `schema_version`; an unrecognized value
 // validates against the latest (its `const` keyword then rejects it — so a
 // missing/wrong version fails, as an invalid fixture should).
-const validateChecks = (doc) => (checksValidators[doc?.schema_version] ?? checksValidators[2]);
+const validateChecks = (doc) => (checksValidators[doc?.schema_version] ?? checksValidators[3]);
 
 function errorsFor(validate, semantics, doc) {
   if (!validate(doc)) {

@@ -58,7 +58,8 @@ try {
   const { verdict, code } = runJson(dir);
   const by = rowsById(verdict);
 
-  check('emits schema_version 2', verdict.schema_version === 2);
+  check('emits schema_version 3', verdict.schema_version === 3);
+  check('a plain run repairs nothing (fixed is empty)', Array.isArray(verdict.fixed) && verdict.fixed.length === 0, JSON.stringify(verdict.fixed));
   check('exit code is non-zero on failure', code === 1, `got ${code}`);
   check('ok reflects failures', verdict.ok === false);
   check('failed lists the broken invariants', ['internal-links', 'structural-html'].every((id) => verdict.failed.includes(id)), verdict.failed.join(','));
@@ -81,7 +82,7 @@ try {
   const verdictFile = path.join(dir, 'verdict.json');
   fs.writeFileSync(verdictFile, JSON.stringify(verdict));
   const conform = spawnSync('node', ['conformance/validate.mjs', verdictFile], { cwd: repo, encoding: 'utf8' });
-  check('the live verdict validates against cordon-checks-v2', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
+  check('the live verdict validates against cordon-checks-v3', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
 
   // A failing gate must publish its report to the CI step summary, so a red run
   // is never silent (the recurring "exit 1, no cordon summary"). The engine owns
@@ -106,6 +107,67 @@ try {
   }
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// — The autofix seam: under --fix a failing check with a declared repair runs
+// it and re-verifies; only a green re-run reports 'fixed'. A check with no
+// repair fails exactly as before, and a plain run never repairs. —
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-selftest-fix-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'cordon.checks.json'), JSON.stringify({
+      commands: [
+        { id: 'heal-me', name: 'Heals under fix', effect: 'read', exec: { cmd: 'test', args: ['-f', 'healed.txt'] }, fixExec: { cmd: 'touch', args: ['healed.txt'] } },
+        { id: 'no-repair', name: 'No repair declared', effect: 'read', exec: { cmd: 'false' } },
+      ],
+    }, null, 2));
+
+    // Without --fix: the repairable check fails like any other, nothing mutates.
+    const plain = runJson(dir);
+    check('--fix off: a repairable failure still fails', rowsById(plain.verdict)['heal-me']?.status === 'fail');
+    check('--fix off: the repair did not run', !fs.existsSync(path.join(dir, 'healed.txt')));
+
+    // With --fix: the repair runs, the re-run proves it, the unrepairable fails.
+    const r = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json', '--fix'], { cwd: repo, encoding: 'utf8' });
+    const v = JSON.parse(r.stdout);
+    const by2 = rowsById(v);
+    check('--fix: repaired check reports fixed', by2['heal-me']?.status === 'fixed', by2['heal-me']?.status);
+    check('--fix: fixed row carries its repair audit trail', /touch healed\.txt/.test(by2['heal-me']?.repair ?? ''), by2['heal-me']?.repair);
+    check('--fix: fixed[] names the repaired id', v.fixed.includes('heal-me'), JSON.stringify(v.fixed));
+    check('--fix: a check with no repair still fails', by2['no-repair']?.status === 'fail');
+    check('--fix: remaining failures keep the gate red', v.ok === false && r.status === 1, `ok=${v.ok} code=${r.status}`);
+
+    // All failures repaired: the gate goes green (exit 0), fixed is the record.
+    fs.rmSync(path.join(dir, 'healed.txt'));
+    fs.writeFileSync(path.join(dir, 'cordon.checks.json'), JSON.stringify({
+      commands: [
+        { id: 'heal-me', name: 'Heals under fix', effect: 'read', exec: { cmd: 'test', args: ['-f', 'healed.txt'] }, fixExec: { cmd: 'touch', args: ['healed.txt'] } },
+      ],
+    }, null, 2));
+    const g = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json', '--fix'], { cwd: repo, encoding: 'utf8' });
+    const gv = JSON.parse(g.stdout);
+    check('--fix: all-repaired run is green', gv.ok === true && g.status === 0, `ok=${gv.ok} code=${g.status}`);
+
+    // A repair that does not heal leaves the original failure, annotated.
+    fs.writeFileSync(path.join(dir, 'cordon.checks.json'), JSON.stringify({
+      commands: [
+        { id: 'bad-repair', name: 'Repair that does not heal', effect: 'read', exec: { cmd: 'false' }, fixExec: { cmd: 'true' } },
+      ],
+    }, null, 2));
+    const b = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json', '--fix'], { cwd: repo, encoding: 'utf8' });
+    const bv = JSON.parse(b.stdout);
+    const badRow = rowsById(bv)['bad-repair'];
+    check('--fix: an unproven repair stays a failure', badRow?.status === 'fail' && b.status === 1, badRow?.status);
+    check('--fix: the failure notes the repair ran', /repair ran .* still fails/.test(badRow?.detail ?? ''), badRow?.detail);
+
+    // The --fix verdicts validate against the v3 schema too.
+    const vf = path.join(dir, 'verdict-fix.json');
+    fs.writeFileSync(vf, JSON.stringify(v));
+    const conformFix = spawnSync('node', ['conformance/validate.mjs', vf], { cwd: repo, encoding: 'utf8' });
+    check('a --fix verdict validates against cordon-checks-v3', conformFix.status === 0, conformFix.stdout.trim() || conformFix.stderr.trim());
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // — The Python version matrix: pyproject classifiers drive a one-check,

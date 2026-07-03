@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jseverino.com/schemas/cordon-checks-v3.json",
+  "$comment": "Canonical home: https://jseverino.com/schemas/cordon-checks-v3.json (the value of $id above) \u2014 the live, immutable URL this schema_version pins. The copy in the cordon repo at schema/cordon-checks-v3.json is the byte-identical development mirror; reference it for validation. v3 extends v2 (phase + unmet) with the autofix seam: a check row may carry status 'fixed' (it failed, a declared repair ran, and the RE-RUN passed \u2014 a fixed row is proven, never trusted), the top-level `fixed` array names those ids, and `repair` records what the repair did. Repairs run only under --fix; a plain run never mutates. checks/run.mjs --json is the reference emitter.",
+  "title": "Cordon checks verdict (schema_version 3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "schema_version",
+    "failed",
+    "fixed",
+    "report",
+    "checks"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "$comment": "The gate: true iff no check failed. A skipped check never fails the gate."
+    },
+    "schema_version": {
+      "const": 3
+    },
+    "failed": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "$comment": "ids of the failed checks \u2014 the same ids that appear in checks[].id with status 'fail'."
+    },
+    "report": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "$comment": "Relative path to the written failure report, or null when ok."
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "fixed": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "$comment": "ids of checks repaired under --fix and proven green by a re-run \u2014 the same ids that appear in checks[].id with status 'fixed'. Always present; empty on a plain run (repairs only run under --fix). A fixed check never fails the gate, but it means the worktree changed: review and commit the repair."
+    }
+  },
+  "$defs": {
+    "effect": {
+      "enum": [
+        "read",
+        "local_write",
+        "vault_write",
+        "remote_write",
+        "deploy"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "pre-build",
+        "build",
+        "post-build"
+      ],
+      "$comment": "Where the check runs in the gate's ordering. Emitted only when a check declares one; absent means the engine's default (pre-build)."
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "status",
+        "durationMs",
+        "effect"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "skip",
+            "fixed"
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "$comment": "The one runtime field \u2014 a verdict is a report, not a static description, so wall-clock cost is legitimately part of it. Everything else is deterministic: checks ride in registry/phase order, failed[] is derived."
+        },
+        "effect": {
+          "$ref": "#/$defs/effect",
+          "$comment": "The check's own blast radius on cordon's ladder \u2014 the cost of producing this row, in the same vocabulary a command's --describe uses. A `command` entry (a spawned spec) carries the effect its registry entry declares."
+        },
+        "phase": {
+          "$ref": "#/$defs/phase"
+        },
+        "network": {
+          "const": true
+        },
+        "interactive": {
+          "const": true
+        },
+        "unmet": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "$comment": "The capabilities this check required but the environment did not satisfy (e.g. ['playwright'] not installed, ['macos'] wrong platform, ['built-dir'] no build output). Present ONLY on a skipped check, and only when the skip was capability-driven \u2014 an artifact simply being absent skips without it. Binary capabilities are open-ended names, so this is not a closed enum."
+        },
+        "fix": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Machine-readable remediation. The verdict-side mirror of effect: effect is the risk read before acting, fix is the remediation read after a failure. Required on a failed check."
+        },
+        "rerun": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "The exact, deterministic command that reproduces this one check standalone. Required on a failed check."
+        },
+        "detail": {
+          "type": "string",
+          "$comment": "The failure's specifics \u2014 which link/line/path/output \u2014 the same text the human report folds in. Emitted on a failed check so an agent acts on the --json verdict without parsing the markdown report."
+        },
+        "repair": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "What the repair was: an invariant's repair(ctx) summary, or the exact fix command a command entry spawned. Present only on a 'fixed' row \u2014 the audit trail for the mutation --fix made."
+        }
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "fail"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "$comment": "A failed check must carry its remediation: machine-readable fix + the deterministic command that reproduces it. The property shapes are defined on the check object above; they are restated here only so the requirement is self-contained under strict validation.",
+        "required": [
+          "fix",
+          "rerun"
+        ],
+        "properties": {
+          "fix": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rerun": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "dependentSchemas": {
+        "unmet": {
+          "$comment": "`unmet` is the capability-skip reason, so it can appear only on a skipped check.",
+          "properties": {
+            "status": {
+              "const": "skip"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "repair": {
+          "$comment": "`repair` is the fixed-row audit trail, so it can appear only on a fixed check.",
+          "properties": {
+            "status": {
+              "const": "fixed"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        }
+      }
+    }
+  }
+}

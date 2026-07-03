@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "schema_version": 3,
+  "failed": [],
+  "fixed": [],
+  "report": null,
+  "checks": [
+    {
+      "id": "ruff",
+      "name": "Ruff lint",
+      "status": "pass",
+      "durationMs": 412,
+      "effect": "read",
+      "repair": "uv run ruff check --fix"
+    }
+  ]
+}

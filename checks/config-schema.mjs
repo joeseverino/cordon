@@ -70,6 +70,17 @@ const ENGINE_PROPERTIES = {
             env: { type: 'object', additionalProperties: { type: 'string' }, description: 'Extra env, merged over the process env.' },
           },
         },
+        fixExec: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['cmd'],
+          description: "The autofix seam: the repair to spawn when this check fails under --fix. The engine runs it, then re-runs the check — only a green re-run reports 'fixed'. Omit when the failure has no mechanical repair.",
+          properties: {
+            cmd: { type: 'string', minLength: 1 },
+            args: { type: 'array', items: { type: 'string' } },
+            env: { type: 'object', additionalProperties: { type: 'string' }, description: 'Extra env, merged over the process env.' },
+          },
+        },
       },
     },
   },
