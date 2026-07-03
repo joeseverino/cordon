@@ -57,6 +57,18 @@ const mod = moduleVersion();
 if (!mod) process.exit(0); // no module __version__ to compare against
 
 if (declared !== mod.version) {
+  // --fix: pyproject [project].version is canonical (the release bumper's
+  // target), so the repair direction is deterministic — rewrite the module
+  // __version__ to match. The engine re-runs this check after, proving it.
+  if (process.argv.includes('--fix')) {
+    const initPath = path.join(root, mod.file);
+    const text = fs.readFileSync(initPath, 'utf8');
+    fs.writeFileSync(initPath, text.replace(
+      /^(__version__\s*=\s*)["'][^"']+["']/m, `$1"${declared}"`,
+    ));
+    console.log(`rewrote ${mod.file} __version__ ${mod.version} -> ${declared} (pyproject is canonical)`);
+    process.exit(0);
+  }
   console.error(`version mismatch: pyproject [project].version=${declared} but ${mod.file} __version__=${mod.version}`);
   process.exit(1);
 }
