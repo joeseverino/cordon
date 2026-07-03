@@ -9,9 +9,17 @@
 //   node checks/run.mjs --phase <p>     # only pre-build | build | post-build
 //   node checks/run.mjs --only <id>     # run a single check (the rerun command)
 //   node checks/run.mjs --json          # the agent/CI contract (only stdout)
+//   node checks/run.mjs --fix           # run declared repairs on failures, re-run to prove them
 //   node checks/run.mjs --report        # always write the report (else: on failure)
 //   node checks/run.mjs --list          # list the checks that apply to the repo
 //   node checks/run.mjs --schema        # emit the cordon.checks.json JSON Schema
+//
+// --fix is the autofix seam: a failing check whose definition declares a repair
+// (an invariant's `repair(ctx)`, or a command's `fixExec` — including a
+// `fix:<name>` script paired with a discovered `check:<name>`) gets the repair
+// run, then the SAME check re-run; only a green re-run reports `fixed` (proven,
+// never trusted). Repairs mutate the worktree, so they run only under --fix —
+// a plain run never writes. Checks without a repair fail exactly as before.
 //
 // The run report (.cordon-checks-report.md — a whole-picture status table, then
 // each failure's fix + rerun + folded output) is written on failure, so a green
@@ -44,7 +52,7 @@ import { runProcess, DEFAULT_TIMEOUT_MS } from './lib/run-process.mjs';
 import { CATALOG } from './catalog.mjs';
 import { discoverScripts } from './lib/discover-scripts.mjs';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const PHASES = ['pre-build', 'build', 'post-build'];
 const DEFAULT_PHASE = 'pre-build';
 
@@ -82,6 +90,7 @@ if (has('--schema')) {
 
 const root = path.resolve(valueOf('--root', process.cwd()));
 const jsonMode = has('--json');
+const fixMode = has('--fix');
 const only = valueOf('--only', null);
 const phaseFilter = valueOf('--phase', null);
 // Write the report even on a green run when explicitly asked (--report) or in CI
@@ -121,6 +130,9 @@ const invariantEntries = checksFor('check').map((c) => ({
   network: c.network, interactive: c.interactive,
   requires: c.requires ?? [], phase: c.phase ?? DEFAULT_PHASE,
   default: c.default, fix: c.fix, run: c.run,
+  // The autofix seam: an invariant MAY export repair(ctx) — mechanical
+  // remediation the engine runs (only under --fix), then re-verifies.
+  repair: typeof c.repair === 'function' ? c.repair : undefined,
 }));
 
 // Shape a command spec (catalog, discovered, or repo) into a runnable entry.
@@ -132,6 +144,7 @@ function toCommandEntry(cmd, source, where, validate = false) {
     if (!cmd.id) throw new Error(`${where} is missing 'id'`);
     if (!cmd.effect) throw new Error(`${where} ('${cmd.id}') must declare an 'effect' (its blast radius)`);
     if (!cmd.exec || typeof cmd.exec.cmd !== 'string') throw new Error(`${where} ('${cmd.id}') must declare exec.cmd`);
+    if (cmd.fixExec && typeof cmd.fixExec.cmd !== 'string') throw new Error(`${where} ('${cmd.id}') fixExec must declare fixExec.cmd`);
   }
   return {
     kind: 'command', source,
@@ -140,6 +153,9 @@ function toCommandEntry(cmd, source, where, validate = false) {
     requires: cmd.requires ?? [], phase: cmd.phase ?? DEFAULT_PHASE,
     default: cmd.default, fix: cmd.fix ?? 'See the command output in the report for the failure.',
     exec: { cmd: cmd.exec.cmd, args: cmd.exec.args ?? [], env: cmd.exec.env },
+    // The autofix seam for commands: a spec that knows how to repair what it
+    // flags (ruff --fix, a paired fix:<name> script). Runs only under --fix.
+    fixExec: cmd.fixExec ? { cmd: cmd.fixExec.cmd, args: cmd.fixExec.args ?? [], env: cmd.fixExec.env } : undefined,
     timeout: cmd.timeout ?? DEFAULT_TIMEOUT_MS,
     // A catalog entry may vary its run over a dimension (e.g. pytest across Python
     // versions); only cordon's own catalog declares this, never repo JSON.
@@ -248,13 +264,14 @@ function gateCmd() {
   return root === process.cwd() ? base : `${base} --root ${root}`;
 }
 
-const GLYPH = { pass: '✅', fail: '❌', skip: '⏭️' };
+const GLYPH = { pass: '✅', fail: '❌', skip: '⏭️', fixed: '🔧' };
 const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ').trim();
 const clip = (s, n = 100) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const noteFor = (r) =>
   r.status === 'fail' ? r.fix
     : r.status === 'skip' ? (r.unmet ? `requires ${r.unmet.join(', ')}` : r.detail || 'skipped')
-      : '';
+      : r.status === 'fixed' ? `repaired: ${r.repair} — review and commit the change`
+        : '';
 
 // The always-written run report — the human record CI surfaces and you open
 // locally, green or red. A whole-picture status table (every check, not just
@@ -265,7 +282,7 @@ const noteFor = (r) =>
 function renderReport(results, failed) {
   const n = (s) => results.filter((r) => r.status === s).length;
   let md = `# Cordon checks — ${failed.length ? `${failed.length} failed` : 'all passed'}\n\n`;
-  md += `${n('pass')} passed · ${n('fail')} failed · ${n('skip')} skipped\n\n`;
+  md += `${n('pass')} passed · ${n('fail')} failed · ${n('skip')} skipped${n('fixed') ? ` · ${n('fixed')} repaired (review + commit)` : ''}\n\n`;
 
   md += '| | check | effect | note |\n|:--:|---|---|---|\n';
   for (const r of results) {
@@ -342,10 +359,56 @@ async function runOne(entry, caps) {
   return { ...base, status: r.code === 0 ? 'pass' : 'fail', durationMs: r.duration, detail: r.output.trim() };
 }
 
-const TAG = { pass: C.green('[PASS]'), fail: C.red('[FAIL]'), skip: C.yellow('[SKIP]') };
+// A repairer is declared on the definition (invariant repair(ctx) / command
+// fixExec) — describe it for the audit trail before running it.
+const repairDesc = (entry) => (entry.kind === 'invariant'
+  ? `repair(ctx) of invariant '${entry.id}'`
+  : `${entry.fixExec.cmd} ${entry.fixExec.args.join(' ')}`.trim());
+
+// The --fix beat: a failed check with a declared repair gets the repair run,
+// then the SAME check re-run through runOne. Only a green re-run reports
+// `fixed` — the mutation is proven by the verifier, never trusted. A repair
+// that errors or doesn't heal leaves the original failure, annotated.
+async function attemptRepair(entry, result, caps) {
+  if (result.status !== 'fail') return result;
+  if (entry.kind === 'invariant' ? !entry.repair : !entry.fixExec) return result;
+  const desc = repairDesc(entry);
+  let repairNote = '';
+  const start = Date.now();
+  try {
+    if (entry.kind === 'invariant') {
+      const r = entry.repair({ root, config: config[entry.id] ?? {}, builtDirs });
+      if (r && r.ok === false) throw new Error(r.detail || 'repair reported failure');
+      repairNote = (r && r.detail) || '';
+    } else {
+      const r = await runProcess(entry.fixExec.cmd, entry.fixExec.args, { cwd: root, env: entry.fixExec.env, timeout: entry.timeout });
+      if (r.spawnFailed || r.code !== 0) throw new Error(r.output.trim() || `exited ${r.code}`);
+      repairNote = r.output.trim();
+    }
+  } catch (e) {
+    return {
+      ...result,
+      durationMs: result.durationMs + (Date.now() - start),
+      detail: `${result.detail}\n— repair attempted (${desc}) but failed: ${e.message}`.trim(),
+    };
+  }
+  const rerun = await runOne(entry, caps);
+  const durationMs = result.durationMs + (Date.now() - start);
+  if (rerun.status === 'pass') {
+    return { ...rerun, status: 'fixed', durationMs, repair: desc, detail: repairNote };
+  }
+  return {
+    ...rerun,
+    durationMs,
+    detail: `${rerun.detail}\n— repair ran (${desc}) but the re-run still fails`.trim(),
+  };
+}
+
+const TAG = { pass: C.green('[PASS]'), fail: C.red('[FAIL]'), skip: C.yellow('[SKIP]'), fixed: C.green('[FIXED]') };
 function printResult(r) {
   say(`  ${TAG[r.status]} ${r.name} ${effectChip(r)} (${r.durationMs}ms)`);
-  if (r.detail && r.status !== 'pass') say(r.detail.split('\n').map((l) => `         ${l}`).join('\n'));
+  if (r.status === 'fixed') say(C.dim(`         ↳ repaired: ${r.repair}`));
+  if (r.detail && r.status !== 'pass' && r.status !== 'fixed') say(r.detail.split('\n').map((l) => `         ${l}`).join('\n'));
 }
 
 // Run a phase's checks concurrency-capped, but print each in entry order as soon
@@ -364,7 +427,9 @@ async function runPhase(phaseEntries, caps, limit = 4) {
   await Promise.all(Array.from({ length: Math.min(limit, phaseEntries.length) }, async () => {
     while (next < phaseEntries.length) {
       const i = next++;
-      results[i] = await runOne(phaseEntries[i], caps);
+      let r = await runOne(phaseEntries[i], caps);
+      if (fixMode) r = await attemptRepair(phaseEntries[i], r, caps);
+      results[i] = r;
       flush();
     }
   }));
@@ -385,6 +450,7 @@ async function main() {
   }
 
   const failed = results.filter((r) => r.status === 'fail');
+  const fixed = results.filter((r) => r.status === 'fixed');
   const reportRel = path.relative(root, reportPath);
 
   // Write the report on failure (the file you open, CI surfaces) — and on a green
@@ -412,6 +478,7 @@ async function main() {
       ok: failed.length === 0,
       schema_version: SCHEMA_VERSION,
       failed: failed.map((r) => r.id),
+      fixed: fixed.map((r) => r.id),
       report: failed.length ? reportRel : null,
       checks: results.map((r) => ({
         id: r.id, name: r.name, status: r.status, durationMs: r.durationMs, effect: r.effect,
@@ -419,11 +486,13 @@ async function main() {
         ...(r.network ? { network: true } : {}),
         ...(r.interactive ? { interactive: true } : {}),
         ...(r.unmet ? { unmet: r.unmet } : {}),
+        ...(r.status === 'fixed' ? { repair: r.repair } : {}),
         ...(r.status === 'fail' ? { fix: r.fix, rerun: rerunFor(entryById(r.id)), detail: clipOutput(r.detail) } : {}),
       })),
     }, null, 2));
   } else if (failed.length === 0) {
-    say(C.bold(C.green('✓ all checks passed')) + (wroteReport ? C.dim(` — ${reportRel}`) : ''));
+    const repaired = fixed.length ? C.yellow(` — ${fixed.length} repaired, review + commit the changes`) : '';
+    say(C.bold(C.green('✓ all checks passed')) + repaired + (wroteReport ? C.dim(` — ${reportRel}`) : ''));
   } else {
     say(C.bold(C.red(`✗ ${failed.length} check(s) failed`)) + ` — see ${reportRel}`);
   }

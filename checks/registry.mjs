@@ -11,7 +11,12 @@
 // graduate up here; command definitions don't. (See checks/README.md.)
 //
 // An invariant is a module exporting { id, name, effect, gates, fix, run(ctx) },
-// plus optional { configSchema, requires, phase }:
+// plus optional { configSchema, requires, phase, repair(ctx) }:
+//   • repair(ctx) — the autofix seam: mechanical remediation for what run(ctx)
+//     flags. Invoked only under --fix, and the engine re-runs the check after —
+//     a repair is proven by its verifier, never trusted. Return { ok, detail }
+//     ({ ok: false } marks the repair itself as failed). Export it only where
+//     the remediation is deterministic and safe to apply unattended.
 //   • configSchema — a JSON Schema fragment for its slice of cordon.checks.json;
 //     config-schema.mjs composes these into the published file schema and each
 //     check derives its runtime defaults from the same source (emit once).

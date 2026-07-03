@@ -10,6 +10,11 @@
 // network, and snapshot-mutation, so they can't all be classified `read` and
 // belong behind an explicit `enable` or a commands[] entry with a stated effect.
 // A repo drops one discovered check with `disable: ["check:links"]`.
+//
+// The autofix pairing: a `fix:<name>` script alongside `check:<name>` becomes
+// the discovered check's `fixExec` — under `--fix` the engine runs the fix
+// script, then re-runs the check to prove it. Declare the pair once, in
+// package.json, and the repair rides in with zero cordon config.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -26,12 +31,18 @@ export function discoverScripts(root) {
   return Object.keys(scripts)
     .filter((name) => name.startsWith('check:'))
     .sort()
-    .map((name) => ({
-      id: name,
-      name: `npm run ${name}`,
-      effect: 'read',
-      requires: ['npm'],
-      exec: { cmd: 'npm', args: ['run', '-s', name] },
-      fix: `Run \`npm run ${name}\` and fix what it reports.`,
-    }));
+    .map((name) => {
+      const fixScript = `fix:${name.slice('check:'.length)}`;
+      return {
+        id: name,
+        name: `npm run ${name}`,
+        effect: 'read',
+        requires: ['npm'],
+        exec: { cmd: 'npm', args: ['run', '-s', name] },
+        fix: `Run \`npm run ${name}\` and fix what it reports.`,
+        ...(scripts[fixScript]
+          ? { fixExec: { cmd: 'npm', args: ['run', '-s', fixScript] } }
+          : {}),
+      };
+    });
 }

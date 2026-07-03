@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "schema_version": 3,
+  "failed": [],
+  "fixed": ["ruff", "check:readme"],
+  "report": null,
+  "checks": [
+    {
+      "id": "ruff",
+      "name": "Ruff lint",
+      "status": "fixed",
+      "durationMs": 412,
+      "effect": "read",
+      "repair": "uv run ruff check --fix"
+    },
+    {
+      "id": "check:readme",
+      "name": "npm run check:readme",
+      "status": "fixed",
+      "durationMs": 903,
+      "effect": "read",
+      "repair": "npm run -s fix:readme"
+    },
+    {
+      "id": "pytest",
+      "name": "Pytest",
+      "status": "pass",
+      "durationMs": 3327,
+      "effect": "read"
+    }
+  ]
+}
