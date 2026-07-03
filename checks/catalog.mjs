@@ -94,6 +94,9 @@ export const CATALOG = [
     requires: ['file:pyproject.toml', 'node'],
     exec: { cmd: 'node', args: [VERSION_ALIGN] },
     fix: 'Align pyproject [project].version with the package __version__ (e.g. src/<pkg>/__init__.py).',
+    // The autofix seam: pyproject is canonical (release-please bumps it), so
+    // --fix rewrites the module __version__ to match — deterministic direction.
+    fixExec: { cmd: 'node', args: [VERSION_ALIGN, '--fix'] },
   },
   // Build the wheel and import it from an isolated env — catches "imports from
   // source, broken once installed" (a module missing from the wheel, a bad build

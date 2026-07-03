@@ -160,6 +160,21 @@ try {
     check('--fix: an unproven repair stays a failure', badRow?.status === 'fail' && b.status === 1, badRow?.status);
     check('--fix: the failure notes the repair ran', /repair ran .* still fails/.test(badRow?.detail ?? ''), badRow?.detail);
 
+    // version-align --fix: pyproject is canonical; the module __version__ is
+    // rewritten to match and the re-run proves alignment.
+    fs.writeFileSync(path.join(dir, 'pyproject.toml'), '[project]\nname = "x"\nversion = "2.0.0"\n');
+    fs.mkdirSync(path.join(dir, 'src', 'x'), { recursive: true });
+    const initFile = path.join(dir, 'src', 'x', '__init__.py');
+    fs.writeFileSync(initFile, '__version__ = "1.0.0"\n');
+    fs.rmSync(path.join(dir, 'cordon.checks.json'));
+    const va = spawnSync('node', ['checks/run.mjs', '--root', dir, '--json', '--fix', '--only', 'version-alignment'], { cwd: repo, encoding: 'utf8' });
+    const vav = JSON.parse(va.stdout);
+    check('version-align --fix: reports fixed and rewrites __version__',
+      rowsById(vav)['version-alignment']?.status === 'fixed'
+      && /"2\.0\.0"/.test(fs.readFileSync(initFile, 'utf8'))
+      && va.status === 0,
+      `status=${rowsById(vav)['version-alignment']?.status} init=${fs.readFileSync(initFile, 'utf8').trim()}`);
+
     // The --fix verdicts validate against the v3 schema too.
     const vf = path.join(dir, 'verdict-fix.json');
     fs.writeFileSync(vf, JSON.stringify(v));
