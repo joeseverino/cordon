@@ -1,0 +1,42 @@
+name: publish
+
+# Publish on GitHub Release (release-please): cordon-spec to npm and
+# cordon-emit to PyPI, both via Trusted Publishing (OIDC) — no tokens.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: Publish cordon-spec to npm
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # OIDC trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v5.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5
+      - run: npm publish
+
+  pypi:
+    name: Publish cordon-emit to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # OIDC trusted publishing
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - name: Build sdist + wheel
+        run: uv build
+        working-directory: emitters/python
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          packages-dir: emitters/python/dist
