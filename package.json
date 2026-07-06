@@ -1,7 +1,7 @@
 {
   "name": "cordon-spec",
   "version": "1.4.0",
-  "description": "Cordon — a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
+  "description": "Cordon \u2014 a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -24,5 +24,9 @@
   "bin": {
     "cordon-checks": "checks/run.mjs",
     "cordon-validate": "conformance/validate.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joeseverino/cordon.git"
   }
 }
