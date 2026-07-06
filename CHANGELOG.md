@@ -12,6 +12,20 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [1.4.0](https://github.com/joeseverino/cordon/compare/v1.3.0...v1.4.0) (2026-07-05)
+
+
+### Features
+
+* **checks:** autofix seam — repair(ctx) / fixExec, run.mjs --fix (checks schema v3) ([#49](https://github.com/joeseverino/cordon/issues/49)) ([63ebf71](https://github.com/joeseverino/cordon/commit/63ebf71606472d9cdbcc24bc75e5d409c35d44cf))
+* **checks:** version-align --fix — rewrite module __version__ from canonical pyproject ([#51](https://github.com/joeseverino/cordon/issues/51)) ([bba2399](https://github.com/joeseverino/cordon/commit/bba23999c94513135c0de7c36b2b5b21169837ba))
+* **publish:** npm + PyPI trusted publishing (cordon-spec, cordon-emit) ([#52](https://github.com/joeseverino/cordon/issues/52)) ([0ba2237](https://github.com/joeseverino/cordon/commit/0ba2237a2fc1f78960d488e78087f354eb91c9e0))
+
+
+### Bug Fixes
+
+* **publish:** drop the private flag — cordon-spec publishes to npm ([#53](https://github.com/joeseverino/cordon/issues/53)) ([79513ef](https://github.com/joeseverino/cordon/commit/79513ef2263f5c1358a8291a3e88b1ac51c8cb30))
+
 ## [1.3.0](https://github.com/joeseverino/cordon/compare/v1.2.0...v1.3.0) (2026-06-30)
 
 
