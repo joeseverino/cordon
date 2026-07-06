@@ -2,9 +2,15 @@ name: publish
 
 # Publish on GitHub Release (release-please): cordon-spec to npm and
 # cordon-emit to PyPI, both via Trusted Publishing (OIDC) — no tokens.
+# GOTCHA: release-please creates the Release with the workflow GITHUB_TOKEN,
+# and token-created events do NOT trigger other workflows (recursion guard) —
+# so the release event below only fires for human-created releases. Until the
+# publish jobs fold into the release workflow itself, run this manually after
+# a release lands:  gh workflow run publish.yml
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
