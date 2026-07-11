@@ -36,6 +36,9 @@ Notes that trip people up:
   bake in line breaks.
 - **Deterministic output.** No timestamps, stable key order — so a guard can
   diff two emissions.
+- **Normalize runtime-only display shapes.** Cordon's option `metavar` is one
+  string; parsers that model multi-value labels as tuples or arrays join them
+  with spaces (for example, `("ID", "DEST")` becomes `"ID DEST"`).
 
 ## Declare the effect
 
