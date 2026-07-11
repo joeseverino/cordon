@@ -60,6 +60,7 @@ def _subcommand_parser() -> argparse.ArgumentParser:
 
     create = sub.add_parser("create", help="Create or update a Project or Asset")
     create.add_argument("kind", choices=["project", "asset"], help="What to create")
+    create.add_argument("--export", nargs=2, metavar=("ID", "DEST"), help="Export an asset")
     set_effect(create, "remote_write", network=True)
     return p
 
@@ -96,6 +97,10 @@ def _assert_invariants(doc: dict) -> None:
     for c in doc["commands"]:
         _check(c["effect"] in EFFECTS, f"command {c['name']}: effect off ladder")
         check_args(c["args"], f"/commands/{c['name']}/args")
+    create = next((c for c in doc["commands"] if c["name"] == "create"), None)
+    if create:
+        export = next(a for a in create["args"] if a["name"] == "--export")
+        _check(export["metavar"] == "ID DEST", "tuple metavars must normalize to text")
 
 
 def build_docs() -> list[dict]:

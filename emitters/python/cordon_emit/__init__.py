@@ -147,7 +147,13 @@ def _describe_arg(action: argparse.Action) -> dict[str, Any]:
         )
         entry["takes_value"] = takes_value
         if takes_value and action.metavar:
-            entry["metavar"] = action.metavar
+            # argparse accepts one label per consumed value, but Cordon keeps
+            # metavar presentation language-neutral as one display string.
+            entry["metavar"] = (
+                " ".join(action.metavar)
+                if isinstance(action.metavar, tuple)
+                else action.metavar
+            )
         # append-action options accept the flag more than once.
         if isinstance(action, argparse._AppendAction | argparse._AppendConstAction):
             entry["repeatable"] = True
