@@ -13,6 +13,9 @@ Use the repository in this order:
 4. [`docs/EMITTERS.md`](docs/EMITTERS.md) — known implementations.
 5. [`docs/DIAGRAM-CASE-STUDY.md`](docs/DIAGRAM-CASE-STUDY.md) — a complete,
    small leaf-tool example and implementation feedback.
+6. [`framework/`](framework/) — the build method and
+   [agent brief](framework/AGENT-BRIEF.md), for creating a *new* tool or repo
+   the Cordon way (guidance layer; never wire format).
 
 Do not infer contract behavior from README prose when the schema or fixtures
 answer the question directly.

@@ -20,6 +20,7 @@ pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 - **Starter template:** [`cordon-starter`](https://github.com/joeseverino/cordon-starter) · a repo scaffold with the contract, CI gate, and governance already wired
+- **Framework:** [`framework/`](framework/) · the build method — the principles learned across the fleet plus an [agent brief](framework/AGENT-BRIEF.md); point a fresh agent here to build a new tool the Cordon way
 
 ---
 
