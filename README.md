@@ -17,6 +17,7 @@ pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin
 - **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
 - **Enforcement:** [`harness/`](harness/) · an opt-in, zero-dependency reference gate that risk-gates a command by its `effect` before it runs
 - **Checks verdict:** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v2.json` — the repo-level sibling contract (*is this repo shippable?*)
+- **Plugin admission:** [`schema/cordon-plugin-admission-v1.json`](schema/cordon-plugin-admission-v1.json) + [`admission/`](admission/) — a signed, digest-bound verdict for artifacts that satisfy an explicit host policy; see [the trust model](docs/PLUGIN-ADMISSION.md)
 - **Implementations:** [`docs/EMITTERS.md`](docs/EMITTERS.md)
 - **Case study:** [adding the `diagram` tool](docs/DIAGRAM-CASE-STUDY.md)
 - **Starter template:** [`cordon-starter`](https://github.com/joeseverino/cordon-starter) · a repo scaffold with the contract, CI gate, and governance already wired

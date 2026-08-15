@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jseverino.com/schemas/cordon-plugin-admission-v1.json",
+  "$comment": "A deterministic predicate for a cryptographically signed plugin admission. This document does not carry or self-assert a signature: consumers must verify the enclosing in-toto attestation, its subject digest, and its trusted builder/workflow identity before accepting this predicate.",
+  "title": "Cordon plugin admission (schema_version 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ok", "schema_version", "kind", "plugin", "artifact", "source", "host", "policy", "evidence"],
+  "properties": {
+    "ok": { "const": true },
+    "schema_version": { "const": 1 },
+    "kind": { "const": "plugin_admission" },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "distribution"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$" },
+        "version": { "type": "string", "minLength": 1 },
+        "distribution": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[^/]+\\.whl$" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "workflow"],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "workflow": { "type": "string", "pattern": "^\\.github/workflows/[A-Za-z0-9_.-]+\\.ya?ml$" }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "plugin_api_version"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "plugin_api_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
+        "version": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checks_sha256", "sbom_sha256", "dependency_lock_sha256"],
+      "properties": {
+        "checks_sha256": { "$ref": "#/$defs/sha256" },
+        "sbom_sha256": { "$ref": "#/$defs/sha256" },
+        "dependency_lock_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

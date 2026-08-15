@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node conformance/validate.mjs && node checks/selftest.mjs",
+    "test": "node conformance/validate.mjs && node checks/selftest.mjs && node admission/selftest.mjs",
     "checks": "node checks/run.mjs"
   },
   "dependencies": {
@@ -13,17 +13,23 @@
   },
   "files": [
     "schema/",
+    "admission/",
     "checks/",
     "conformance/",
     "harness/",
     "fixtures/",
     "docs/EMITTERS.md",
     "docs/IMPLEMENTERS.md",
-    "docs/REUSABLE-GATE.md"
+    "docs/REUSABLE-GATE.md",
+    "docs/PLUGIN-ADMISSION.md"
   ],
   "bin": {
     "cordon-checks": "checks/run.mjs",
-    "cordon-validate": "conformance/validate.mjs"
+    "cordon-validate": "conformance/validate.mjs",
+    "cordon-admission-create": "admission/create.mjs",
+    "cordon-admission-evidence": "admission/evidence.mjs",
+    "cordon-admission-lock": "admission/lock.mjs",
+    "cordon-admission": "admission/verify.mjs"
   },
   "repository": {
     "type": "git",
