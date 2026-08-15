@@ -11,6 +11,11 @@ verdict, then by its `schema_version` (`schema/cordon-checks-v1.json` or
 - **`valid/`** — documents a conformant emitter may produce. Must **pass**.
 - **`invalid/`** — documents that must be **rejected**. Each isolates one rule.
 
+`admission/valid` and `admission/invalid` exercise the independently versioned
+plugin-admission predicate. They pin immutable source and digest-shaped
+evidence; cryptographic bundle verification is covered by
+`admission/selftest.mjs`.
+
 ## Command surface — `schema/cordon-v4.json`
 
 | Fixture | Must | Rule it pins |

@@ -25,6 +25,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const compile = (file) => ajv.compile(JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')));
 const validateSurface = compile('schema/cordon-v4.json');
+const validatePluginAdmission = compile('schema/cordon-plugin-admission-v1.json');
 const checksValidators = { 1: compile('schema/cordon-checks-v1.json'), 2: compile('schema/cordon-checks-v2.json'), 3: compile('schema/cordon-checks-v3.json') };
 // A checks verdict pins its schema by `schema_version`; an unrecognized value
 // validates against the latest (its `const` keyword then rejects it — so a
@@ -43,6 +44,9 @@ function errorsFor(validate, semantics, doc) {
 // Returns null for a document that is neither.
 function contractFor(doc) {
   if (doc && typeof doc === 'object') {
+    if (doc.kind === 'plugin_admission') {
+      return { validate: validatePluginAdmission, semantics: () => [], label: 'Cordon plugin admission' };
+    }
     if (Array.isArray(doc.commands)) {
       return { validate: validateSurface, semantics: surfaceSemanticErrors, label: 'Cordon contract' };
     }
@@ -126,6 +130,8 @@ sweep('valid', true);
 sweep('invalid', false);
 sweep('checks/valid', true);
 sweep('checks/invalid', false);
+sweep('admission/valid', true);
+sweep('admission/invalid', false);
 
 if (failures) {
   console.error(`\n${failures} fixture(s) did not behave as specified`);

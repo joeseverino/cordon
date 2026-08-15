@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "kind": "plugin_admission",
+  "plugin": { "id": "example.notes", "version": "1.2.3", "distribution": "example-notes" },
+  "artifact": { "name": "example_notes-1.2.3-py3-none-any.whl", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "source": { "repository": "example/example-notes", "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "workflow": ".github/workflows/admit-plugin.yml" },
+  "host": { "id": "severino-hq", "plugin_api_version": 1 },
+  "policy": { "id": "cordon.hq-plugin", "version": 1, "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+  "evidence": {
+    "checks_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sbom_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "dependency_lock_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}
