@@ -12,6 +12,20 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [1.5.0](https://github.com/joeseverino/cordon/compare/v1.4.0...v1.5.0) (2026-08-29)
+
+
+### Features
+
+* add cryptographic plugin admission ([#61](https://github.com/joeseverino/cordon/issues/61)) ([a5f2f2d](https://github.com/joeseverino/cordon/commit/a5f2f2d2c11e33abe1be6ab04e5961f3c2f4a739))
+
+
+### Bug Fixes
+
+* **emitter:** normalize multi-value metavars ([#57](https://github.com/joeseverino/cordon/issues/57)) ([75c0bd3](https://github.com/joeseverino/cordon/commit/75c0bd32ce1c60e6d68b02e2fa0ae8dabecc801e))
+* **publish:** repository field — npm provenance verifies against the repo claim ([#56](https://github.com/joeseverino/cordon/issues/56)) ([d2d461a](https://github.com/joeseverino/cordon/commit/d2d461a97f6c1369cfa6de64bcc8d99e80894815))
+* **publish:** workflow_dispatch fallback — bot-created releases don't cascade ([#54](https://github.com/joeseverino/cordon/issues/54)) ([8413e83](https://github.com/joeseverino/cordon/commit/8413e83b3a4faae7ba3b7b0682a34028ff52900e))
+
 ## [1.4.0](https://github.com/joeseverino/cordon/compare/v1.3.0...v1.4.0) (2026-07-05)
 
 
