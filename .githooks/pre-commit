@@ -16,3 +16,10 @@ case "$branch" in
         exit 1
         ;;
 esac
+
+# A repo-level core.hooksPath replaces the user-global hook rather than running
+# alongside it. Hand off to it so both apply.
+global_hook="${XDG_CONFIG_HOME:-$HOME/.config}/git/hooks/pre-commit"
+if [[ -x "$global_hook" ]] && ! [[ "$global_hook" -ef "${BASH_SOURCE[0]}" ]]; then
+    exec "$global_hook" "$@"
+fi
