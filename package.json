@@ -1,7 +1,7 @@
 {
   "name": "cordon-spec",
-  "version": "1.4.0",
-  "description": "Cordon \u2014 a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
+  "version": "1.5.0",
+  "description": "Cordon — a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
   "type": "module",
   "license": "MIT",
   "scripts": {
