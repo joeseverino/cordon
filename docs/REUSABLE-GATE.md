@@ -29,10 +29,11 @@ protection is the same everywhere.
 2. sets up Node from the repo's `.nvmrc` (24 when there is none), installs the
    repo's npm or pnpm dependencies, and builds cordon's engine;
 3. for a repo with a `pyproject.toml`, sets up uv and syncs its dependencies
-   (with the `dev` extra when the repo declares one);
+   (with the `dev` extra when the repo declares one); for a repo with a
+   `go.mod`, sets up Go at the version `go.mod` declares;
 4. installs ShellCheck, ripgrep, and any `packages` the repo asks for;
 5. runs the checks engine over the repo, folding the catalog checks detected
-   from its stack (ruff and pytest for uv, ShellCheck for shell, bats for a
+   from its stack (ruff and pytest for uv, gofmt, go vet and go test for Go, ShellCheck for shell, bats for a
    `tests/` suite, conformance for a cordon contract) with cordon's built-in
    invariants into one verdict, and writes the report to the run summary.
 

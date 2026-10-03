@@ -265,6 +265,21 @@
       "additionalProperties": false,
       "description": "Config for the \"README reference in sync\" check — no options."
     },
+    "gofmt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"gofmt\" check — no options."
+    },
+    "go-vet": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"go vet\" check — no options."
+    },
+    "go-test": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the \"go test\" check — no options."
+    },
     "shellcheck": {
       "type": "object",
       "additionalProperties": false,

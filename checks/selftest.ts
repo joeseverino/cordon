@@ -118,6 +118,7 @@ try {
     const b = rowsById(v2);
     check('bare repo: a stack-gated catalog check skips, not fails', b.ruff?.status === 'skip', b.ruff?.status);
     check('bare repo: the skip is capability-driven (file:pyproject.toml)', b.ruff?.unmet?.includes('file:pyproject.toml'), JSON.stringify(b.ruff?.unmet));
+    check('bare repo: the Go checks skip on a missing go.mod', ['gofmt', 'go-vet', 'go-test'].every((id) => b[id]?.unmet?.includes('file:go.mod')), JSON.stringify(b['go-test']?.unmet));
     check('bare repo: a single-phase run omits phase', v2.checks.every((c) => c.phase === undefined));
   } finally {
     fs.rmSync(bare, { recursive: true, force: true });
