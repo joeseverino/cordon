@@ -100,7 +100,7 @@ export default {
     // — Universal: secrets, build output, and tracked conflict copies —
     const dirRe = new RegExp(`(^|/)(?:${cfg.forbiddenDirs.join('|')})(/|$)`);
     const forbidden = tracked.filter((f) =>
-      (/(^|\/)\.env(?:\.|$)/.test(f) && !f.endsWith('.env.example'))
+      (/(^|\/)\.env(?:\.|$)/.test(f) && !/\.env\.(?:example|tpl)$/.test(f))
       || (/(^|\/)\.dev\.vars(?:\.|$)/.test(f) && !f.endsWith('.dev.vars.example'))
       || dirRe.test(f)
       || CONFLICT_COPY.test(path.basename(f)));
