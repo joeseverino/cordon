@@ -47,7 +47,7 @@ gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow \
 Each run writes one line to the run summary: released, release PR ready, or
 nothing to release. The workflow also returns `release_created` and `tag_name`,
 so a caller can publish in a job that `needs:` it (cordon's own
-[`release.yml`](../.github/workflows/release.yml) does).
+[`publish.yml`](../.github/workflows/publish.yml) does). A repo that publishes with trusted publishing keeps the workflow filename its npm or PyPI publisher names.
 
 ## Inputs
 

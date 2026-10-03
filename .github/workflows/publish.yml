@@ -2,12 +2,15 @@
 # exactly as every consuming repo does (docs/RELEASE.md). One version covers the
 # npm package and the Python emitter (release-please-config.json). When a
 # release is cut, `v2` moves to it and both packages publish with provenance
-# through trusted publishing, so no token is stored anywhere.
+# through trusted publishing, so no token is stored anywhere. npm and PyPI trust
+# this file by name: keep it publish.yml. A manual run republishes the current
+# version if a publish failed.
 name: release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,7 +28,7 @@ jobs:
   npm:
     name: Publish cordon-spec to npm
     needs: cordon
-    if: ${{ needs.cordon.outputs.release_created == 'true' }}
+    if: ${{ needs.cordon.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,7 +49,7 @@ jobs:
   pypi:
     name: Publish cordon-emit to PyPI
     needs: cordon
-    if: ${{ needs.cordon.outputs.release_created == 'true' }}
+    if: ${{ needs.cordon.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
