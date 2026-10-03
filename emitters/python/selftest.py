@@ -3,10 +3,10 @@
 
 Builds a representative argparse parser (a leaf tool and a subcommand tool),
 emits each as a Cordon v4 document, and asserts the structural invariants the
-schema and conformance/semantics.mjs enforce. With ``--emit`` it also prints both
+schema and conformance/semantics.ts enforce. With ``--emit`` it also prints both
 documents so they can be piped through cordon's own validator:
 
-    python3 emitters/python/selftest.py --emit | node conformance/validate.mjs -
+    python3 emitters/python/selftest.py --emit | node conformance/validate.ts -
 
 Exit non-zero on any structural failure. No third-party deps.
 """

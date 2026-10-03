@@ -2,7 +2,7 @@
 
 Language-agnostic test vectors. Any Cordon emitter (in any language) is correct
 when its output validates the way these say it should — point your validator at
-the matching schema and run [`conformance/validate.mjs`](../conformance/validate.mjs).
+the matching schema and run [`conformance/validate.ts`](../conformance/validate.ts).
 The harness picks the schema by document shape: `commands[]` → the
 command-surface contract (`schema/cordon-v4.json`); `checks[]` → the checks
 verdict, then by its `schema_version` (`schema/cordon-checks-v1.json` or
@@ -14,7 +14,7 @@ verdict, then by its `schema_version` (`schema/cordon-checks-v1.json` or
 `admission/valid` and `admission/invalid` exercise the independently versioned
 plugin-admission predicate. They pin immutable source and digest-shaped
 evidence; cryptographic bundle verification is covered by
-`admission/selftest.mjs`.
+`admission/selftest.ts`.
 
 ## Command surface — `schema/cordon-v4.json`
 
@@ -33,7 +33,7 @@ evidence; cryptographic bundle verification is covered by
 The repo-level sibling. Where the command-surface contract answers *"what does
 running this command cost?"*, the verdict answers *"is this repo shippable, and
 what fixes each failure?"* — the machine-readable output of
-[`checks/run.mjs --json`](../checks/run.mjs). `durationMs` is the one runtime
+[`checks/run.ts --json`](../checks/run.ts). `durationMs` is the one runtime
 field (a verdict is a report, not a static description); everything else is
 deterministic — checks ride in registry/phase order and `failed[]` is derived.
 **v2** adds two signals the gate engine emits: per-check `phase` (where it runs

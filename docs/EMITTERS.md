@@ -5,14 +5,14 @@ Implementations that produce Cordon-conformant contracts. Each validates against
 
 ## Reference emitters (in this repo)
 
-Drop-in, dependency-free emitters you reference from a cordon checkout
-(`$CORDON_HOME`) rather than reimplement. Reference, don't vendor — they track
-the schema in the same repo.
+Drop-in, dependency-free emitters, published on the same version as cordon:
+`cordon-spec/emit` on npm and `cordon-emit` on PyPI. Depend on them rather than
+copy them, so they track the schema.
 
 | Emitter | Language | Shape | How |
 |---|---|---|---|
 | [`emitters/python`](../emitters/python/) (`cordon-emit`) | Python | **introspect** | One line — `describe_main(parser, group=…, order=…)` — projects an existing `argparse` parser to the contract; `set_effect()` declares each command's blast radius. Undeclared commands default to `read` but the emitter warns, and `--effect-required` makes an undeclared command fatal (strict posture). Zero-touch path: `python -m cordon_emit module:factory`. Proven byte-identical to the bash leaf fixture by its selftest. |
-| [`emitters/node`](../emitters/node/) (`cordon-emit-node`) | Node / JS | **introspect** (+ declare) | An npm repo's surface lives in one place — `package.json` `scripts` — so `describeScripts(pkg, { effects, group, order })` derives the commands (names + the literal command each delegates to) from there; you declare only each command's blast radius. The emitter is an executable `bin/<tool>` answering `--describe`/`--write`/`--check`, so cordon's existing `conformance` + `drift` checks cover it with no catalog change. `renderSurface(spec)` is the declare fallback for surfaces with no parser. Zero-touch path: `node cli.mjs package.json -e build=local_write`. Selftest proves both: introspect derivation, and declare-projection byte-identical to **both** bash fixtures (`leaf-tool`, `subcommands`). |
+| [`emitters/node`](../emitters/node/) (`cordon-spec/emit`) | Node / TypeScript | **introspect** (+ declare) | An npm repo's surface lives in one place — `package.json` `scripts` — so `describeScripts(pkg, { effects, group, order })` derives the commands (names + the literal command each delegates to) from there; you declare only each command's blast radius. The emitter is an executable `bin/<tool>` answering `--describe`/`--write`/`--check`, so cordon's existing `conformance` + `drift` checks cover it with no catalog change. `renderSurface(spec)` is the declare fallback for surfaces with no parser. Zero-touch path: `npx cordon-emit package.json -e build=local_write`. Selftest proves both: introspect derivation, and declare-projection byte-identical to **both** bash fixtures (`leaf-tool`, `subcommands`). |
 
 ## In-the-wild emitters
 

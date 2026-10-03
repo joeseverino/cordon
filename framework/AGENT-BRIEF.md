@@ -45,7 +45,7 @@ Numbered so a review can cite them. Principle references point into
    `interactive` only when true (principle 4). If you are unsure between two
    rungs, declare the higher one.
 3. **`--describe` validates**: pipe it through
-   `node conformance/validate.mjs -` and commit the emitted contract as a
+   `node conformance/validate.ts -` and commit the emitted contract as a
    golden under `contract/` (principles 5, 7). Never hand-edit the golden.
 4. **Machine face for anything computed** (principle 3) — if the tool derives a
    fact a caller might want, expose it as structured output, not log prose;
@@ -73,7 +73,7 @@ A build is done when all of these hold — not before, and claiming otherwise
 is the failure mode this framework exists to prevent:
 
 ```sh
-<tool> --describe | node conformance/validate.mjs -   # contract validates
+<tool> --describe | node conformance/validate.ts -   # contract validates
 scripts/check.sh                                       # repo gate green
 git diff --check                                       # no whitespace damage
 ```

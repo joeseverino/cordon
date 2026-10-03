@@ -6,7 +6,7 @@
 #
 #   jobs:
 #     cordon:
-#       uses: joeseverino/cordon/.github/workflows/cordon-release.yml@main
+#       uses: joeseverino/cordon/.github/workflows/cordon-release.yml@v2
 #
 # On every push to main it maintains ONE standing "release PR"
 # (`chore(main): release X.Y.Z`) whose version is computed from Conventional
@@ -17,23 +17,44 @@
 # `release-type` defaults to `simple` (a plain `version.txt`), so a brand-new
 # repo needs ZERO config. A typed repo overrides it in one line:
 #   with: { release-type: node }   # or python, go, …  (reads package.json etc.)
+# `release-type: manifest` reads release-please-config.json instead, for a repo
+# that versions several files together.
 #
-# ONE-TIME per-repo setting (required): Settings → Actions → General → Workflow
-# permissions → "Allow GitHub Actions to create and approve pull requests".
-# Without it the release PR cannot be opened. Full guide: docs/RELEASE.md.
+# `float-major: true` moves a `vN` tag to each new `vN.x.y` release, so callers
+# can follow a major version (`@v2`) the way they follow a GitHub Action.
+#
+# Release PRs opened with the default GITHUB_TOKEN never trigger workflows, so a
+# required check never reports on them. Pass a GitHub App (`app-client-id` plus
+# the `app-private-key` secret) and the release PR is opened as the app, which
+# does trigger CI. Full guide: docs/RELEASE.md.
 name: cordon release
 
 on:
   workflow_call:
     inputs:
       release-type:
-        description: "release-please strategy: simple | node | python | go | …"
+        description: "release-please strategy: simple | node | python | go | … | manifest (read release-please-config.json)"
         type: string
         default: simple
+      float-major:
+        description: "Move a vN tag to each new vN.x.y release."
+        type: boolean
+        default: false
+      app-client-id:
+        description: "Client ID of a GitHub App to open release PRs as, so they trigger CI."
+        type: string
+        default: ""
     secrets:
-      token:
-        description: "Optional PAT/App token so the release PR re-triggers gated CI. Defaults to GITHUB_TOKEN."
+      app-private-key:
+        description: "Private key of the app named by app-client-id."
         required: false
+    outputs:
+      release_created:
+        description: "'true' when this run cut a release."
+        value: ${{ jobs.release.outputs.release_created }}
+      tag_name:
+        description: "The tag of the release this run cut."
+        value: ${{ jobs.release.outputs.tag_name }}
 
 permissions:
   contents: read
@@ -44,12 +65,38 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
+      - name: Mint the release app token
+        if: ${{ inputs.app-client-id != '' }}
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
-          release-type: ${{ inputs.release-type }}
-          token: ${{ secrets.token || github.token }}
+          release-type: ${{ inputs.release-type != 'manifest' && inputs.release-type || '' }}
+          token: ${{ steps.app.outputs.token || github.token }}
+
+      - name: Move the major tag to this release
+        if: ${{ inputs.float-major && steps.release.outputs.release_created == 'true' }}
+        env:
+          TAG: ${{ steps.release.outputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          major="${TAG%%.*}"
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$major" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$major" -f sha="$sha" -F force=true >/dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$major" -f sha="$sha" >/dev/null
+          fi
+          echo "moved $major to $TAG"
 
       # Always tell the run summary what happened — the release-side sibling of
       # the gate's checks report. One of three states: shipped a release,

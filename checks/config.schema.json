@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://jseverino.com/schemas/cordon-checks-config-v2.json",
   "title": "cordon.checks.json",
-  "description": "Per-repo configuration for cordon's checks engine — and usually the whole file is optional. Checks auto-detect from the repo's stack; the common case is no file at all. Reach for one only to deviate: `enable`/`disable` flip a check by name (the bare minimum), a check-id key tunes a built-in check's options, and `builtDirs`/`commands` configure the engine. Run `node checks/run.mjs --list` to see exactly what runs here.",
+  "description": "Per-repo configuration for cordon's checks engine — and usually the whole file is optional. Checks auto-detect from the repo's stack; the common case is no file at all. Reach for one only to deviate: `enable`/`disable` flip a check by name (the bare minimum), a check-id key tunes a built-in check's options, and `commands` adds a repo's own spawned specs. Run `node checks/run.ts --list` to see exactly what runs here.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -15,7 +15,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Turn ON a check that is off by default here — an opt-in catalog check (e.g. the heavy `playwright` suite). Names only; everything else (effect, command, fix) is cordon's. Run `node checks/run.mjs --list` to see what applies."
+      "description": "Turn ON a check that is off by default here — an opt-in check declared `default: 'off'`. Names only; everything else (effect, command, fix) is cordon's. Run `node checks/run.ts --list` to see what applies."
     },
     "disable": {
       "type": "array",
@@ -24,20 +24,9 @@
       },
       "description": "Turn OFF an auto-detected check by id (e.g. `pip-audit`, or a discovered `check:*` script). The bare-minimum way to drop a check: just its name, no other config."
     },
-    "builtDirs": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": [
-        "dist",
-        "dist.nosync"
-      ],
-      "description": "Candidate build-output dirs (first non-empty one wins). Drives the `built-dir` capability and the post-build invariants, so they agree on where the build is."
-    },
     "commands": {
       "type": "array",
-      "description": "Escape hatch for a repo-specific spawned spec cordon's catalog doesn't already cover. Most repos need none — language presets auto-detect (uv/Django/cordon-tool/shell/node-web) and package.json `check:*` scripts are discovered. Reach for this only for a genuinely bespoke check; declare its blast-radius `effect`. An id here overrides a catalog check of the same id.",
+      "description": "Escape hatch for a repo-specific spawned spec cordon's catalog doesn't already cover. Most repos need none — language presets auto-detect (uv/cordon-tool/shell) and package.json `check:*` scripts are discovered. Reach for this only for a genuinely bespoke check; declare its blast-radius `effect`. An id here overrides a catalog check of the same id.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -79,7 +68,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Capabilities it needs (git/macos/ci/built-dir, file:<path>, glob:<pattern>, <binary>, or !cap to negate); the engine skips it fail-soft when unmet."
+            "description": "Capabilities it needs (git/macos/ci, file:<path>, glob:<pattern>, <binary>, or !cap to negate); the engine skips it fail-soft when unmet."
           },
           "phase": {
             "enum": [
@@ -87,7 +76,7 @@
               "build",
               "post-build"
             ],
-            "description": "Where it runs around the build. Default pre-build."
+            "description": "Where it runs around the repo's own build step (pre-build → build → post-build). Default pre-build."
           },
           "default": {
             "const": "off",
@@ -182,7 +171,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Extra trees to walk for untracked iCloud conflict copies (\"name 2.ext\"). Tracked copies are caught regardless; [] walks nothing."
+          "description": "Extra trees to walk for untracked conflict copies (\"name 2.ext\", left by Finder or iCloud). Tracked copies are caught regardless; [] walks nothing."
         },
         "checkNvmrc": {
           "type": "boolean",
@@ -221,37 +210,6 @@
           "description": "Kill the command after this many milliseconds rather than wedge the gate."
         }
       }
-    },
-    "internal-links": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Internal link integrity over the built HTML. Universal rule; the two seams below adapt it to a site.",
-      "properties": {
-        "origin": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "default": null,
-          "description": "Production origin (e.g. \"https://example.com\") to treat as same-site, so absolute canonical/og URLs are resolved against the build. null leaves external origins out of scope."
-        },
-        "dynamicRoutePrefixes": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "/api/",
-            "/cdn-cgi/"
-          ],
-          "description": "Path prefixes served by functions/proxies, not emitted files — references under them are allowlisted instead of resolved on disk."
-        }
-      }
-    },
-    "structural-html": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Config for the \"Structural HTML\" check — no options."
     },
     "dispatch-dups": {
       "type": "object",
@@ -292,16 +250,6 @@
       "additionalProperties": false,
       "description": "Config for the \"Built package imports\" check — no options."
     },
-    "django-check": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Config for the \"Django system check\" check — no options."
-    },
-    "django-migrations": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Config for the \"Migrations match models\" check — no options."
-    },
     "conformance": {
       "type": "object",
       "additionalProperties": false,
@@ -326,16 +274,6 @@
       "type": "object",
       "additionalProperties": false,
       "description": "Config for the \"Bats tests\" check — no options."
-    },
-    "stylelint": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Config for the \"Stylelint\" check — no options."
-    },
-    "playwright": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Config for the \"Playwright e2e\" check — no options."
     }
   }
 }

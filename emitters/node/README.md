@@ -1,4 +1,4 @@
-# cordon-emit-node
+# The Node emitter (`cordon-spec/emit`)
 
 The Node **reference emitter** for Cordon. Where the Python emitter *introspects*
 an `argparse` parser and the bash toolchain *declares* a surface in a DSL, an npm
@@ -9,8 +9,13 @@ command each one runs — and projects them to the one
 contract is *derived*. Same schema, same byte-deterministic output, so a Node
 emitter converges with the bash and Python ones instead of drifting.
 
-Pure ESM, zero dependencies. **Reference it from a cordon checkout
-(`$CORDON_HOME`); don't vendor it** — a copy drifts from the schema in the same repo.
+It ships in the `cordon-spec` package with its types. Add the package as a pinned
+dev dependency and import `cordon-spec/emit`; never copy the emitter, since a
+copy drifts from the schema it targets.
+
+```sh
+npm install --save-dev --save-exact cordon-spec
+```
 
 ## So easy — derive the surface, declare only the blast radius
 
@@ -21,9 +26,8 @@ is each command's **blast radius** (the one fact a script string can't tell you)
 ```js
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
-const CORDON = process.env.CORDON_HOME ?? `${process.env.HOME}/Documents/Code/Assets/cordon`;
-const { describeScripts, emitMain } = await import(`${CORDON}/emitters/node/index.mjs`);
-const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
+import { describeScripts, emitMain } from 'cordon-spec/emit';
+const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 emitMain(
   describeScripts(pkg, {
@@ -59,13 +63,12 @@ stderr, so a forgotten blast radius isn't a silent fail-open. Effects ride the
 
 ## So powerful — zero-touch on any package.json
 
-No emitter script needed — point the CLI at any repo's `package.json` and pipe it
-into cordon's validator:
+No emitter script needed: point the `cordon-emit` command at any repo's
+`package.json` and pipe it into the validator:
 
 ```sh
-node cli.mjs ../some-repo/package.json -g Integrations -o 150 -e build=local_write,deploy=deploy
-node cli.mjs ./package.json -g X -o 1 -e build=local_write \
-  | node "$CORDON_HOME/conformance/validate.mjs" -
+npx cordon-emit ../some-repo/package.json -g Integrations -o 150 -e build=local_write,deploy=deploy
+npx cordon-emit ./package.json -g X -o 1 -e build=local_write | npx cordon-validate -
 ```
 
 ## Declare, when there is no parser
@@ -75,7 +78,7 @@ dispatcher, a generated CLI). For those, declare a typed spec and project it
 directly — the same shape the bash DSL produces:
 
 ```js
-import { renderSurface, emitMain } from `${CORDON}/emitters/node/index.mjs`;
+import { emitMain } from 'cordon-spec/emit';
 emitMain({ name: 'x', group: 'G', order: 1, effect: 'read',
   commands: [{ name: 'go', summary: 'do it', effect: 'local_write',
     positionals: [{ name: 'target', help: 'what to act on' }] }] },
@@ -102,8 +105,8 @@ can diff it.
 ## Verify
 
 ```sh
-node selftest.mjs            # introspect derivation + canonical parity with the bash fixtures
-node selftest.mjs --emit | node ../../conformance/validate.mjs -
+node emitters/node/selftest.ts            # introspection + parity with the bash fixtures
+node emitters/node/selftest.ts --emit | node conformance/validate.ts -
 ```
 
 The selftest proves convergence: the **declare** projection of a reconstructed

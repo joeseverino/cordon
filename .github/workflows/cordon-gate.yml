@@ -5,7 +5,7 @@
 #
 #   jobs:
 #     cordon:
-#       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@main
+#       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@v1
 #
 # It checks the caller out, brings cordon's engine + schema along, auto-detects
 # the stack (Python → uv deps, Node → npm deps; everything gets node + shellcheck
@@ -18,15 +18,19 @@
 #
 # Inputs: `runner` (default ubuntu-latest) and `packages` (extra brew/apt tooling)
 # let a repo that needs macOS or a specific toolchain still ride the one gate.
+#
+# Versioning: `@v1` follows the latest 1.x release, and the engine is fetched at
+# `cordon-ref` (default `v1` too), so the workflow and the checks it runs come
+# from the same release. Pin both to a `vX.Y.Z` tag to freeze them.
 name: cordon gate
 
 on:
   workflow_call:
     inputs:
       cordon-ref:
-        description: "Which cordon ref provides the engine + schema (default: main)."
+        description: "The cordon tag, branch, or commit that provides the engine and schema (default: v1, the latest 1.x release)."
         type: string
-        default: main
+        default: v1
       runner:
         description: "Runner image. Default ubuntu-latest; pass macos-latest for repos that need macOS (Keychain, a brew toolchain)."
         type: string
@@ -45,22 +49,31 @@ jobs:
     steps:
       - name: Check out the calling repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Fetch cordon (engine + schema — OUTSIDE the caller's tree)
         # Cloned into RUNNER_TEMP, never a path inside the caller's workspace: a
         # repo whose own tooling scans the working tree (a generated README/repo
         # inventory, a "list every dir" check) must not see cordon's files as if
-        # they were the repo's. cordon is public, so no auth; shallow for speed.
-        run: git clone --depth 1 --branch "${{ inputs.cordon-ref }}" https://github.com/joeseverino/cordon "$RUNNER_TEMP/cordon"
+        # they were the repo's. cordon is public, so no auth. A fetch by ref (not
+        # `clone --branch`) accepts a tag, a branch, or a commit SHA.
+        env:
+          CORDON_REF: ${{ inputs.cordon-ref }}
+        run: |
+          git init -q "$RUNNER_TEMP/cordon"
+          git -C "$RUNNER_TEMP/cordon" fetch -q --depth 1 https://github.com/joeseverino/cordon "$CORDON_REF"
+          git -C "$RUNNER_TEMP/cordon" checkout -q FETCH_HEAD
 
       # Honor the caller's Node pin (.nvmrc) so the Repository Policy nvmrc check
       # agrees and the caller's checks run on the Node they target; fall back to
-      # 24 when a repo pins nothing. cordon's engine runs on the fleet's pinned
-      # majors. Two steps, not one ternary: a GitHub Actions `&& '' || '24'`
-      # expression returns '24' even when .nvmrc exists (empty string is falsy),
-      # and a non-empty node-version overrides node-version-file.
+      # 24 when a repo pins nothing. cordon's engine is built to plain JavaScript
+      # below, so it runs on whichever Node the caller pins. Two steps, not one
+      # ternary: a GitHub Actions `&& '' || '24'` expression returns '24' even
+      # when .nvmrc exists (empty string is falsy), and a non-empty node-version
+      # overrides node-version-file.
       #
-      # setup-node v5 also defaults its package-manager cache on, auto-detecting
+      # setup-node also defaults its package-manager cache on, auto-detecting
       # `packageManager` in package.json — a pnpm repo then fails ("Unable to
       # locate executable file: pnpm") before corepack enables it. The gate
       # installs deps explicitly below, so disable that cache on both paths.
@@ -78,31 +91,37 @@ jobs:
           node-version: "24"
           package-manager-cache: false
 
-      - name: Install cordon's engine deps
-        run: npm --prefix "$RUNNER_TEMP/cordon" ci
+      - name: Build cordon's engine
+        # The same build the npm package ships, so the gate and every local
+        # `cordon-checks` run identical JavaScript.
+        run: |
+          npm --prefix "$RUNNER_TEMP/cordon" ci
+          npm --prefix "$RUNNER_TEMP/cordon" run build
 
       - name: Set up uv (Python repos only)
         if: ${{ hashFiles('pyproject.toml') != '' }}
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
 
       - name: Sync Python deps (Python repos only)
         if: ${{ hashFiles('pyproject.toml') != '' }}
-        run: uv sync --extra dev || uv sync || true
+        # A repo with a `dev` extra gets it; one without syncs its base deps. A
+        # real resolution failure fails here, not as a confusing check later.
+        run: |
+          if grep -qE '^[[:space:]]*dev[[:space:]]*=' pyproject.toml; then uv sync --extra dev; else uv sync; fi
 
       - name: Install the caller's npm deps (npm repos only)
         # The caller owns the workspace root; cordon's engine lives in RUNNER_TEMP,
         # out of the tree. A repo with a lockfile gets its own deps so node-based
-        # checks (catalog `check:*` scripts, stylelint, a `commands[]` spec like
+        # checks (discovered `check:*` scripts, a `commands[]` spec like
         # tsc) can run.
         if: ${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
 
       - name: Install the caller's pnpm deps (pnpm repos only)
-        # The fleet's Node standard is pnpm (corepack-pinned via `packageManager`).
-        # corepack ships with Node, so enable it and let it honor the pinned pnpm;
-        # --frozen-lockfile keeps CI reproducible. Mirrors the npm path above.
+        # A repo that pins pnpm through `packageManager` gets it via corepack,
+        # which ships with Node; --frozen-lockfile keeps CI reproducible.
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
         run: |
           corepack enable
@@ -112,19 +131,19 @@ jobs:
         env:
           EXTRA_PACKAGES: ${{ inputs.packages }}
         run: |
-          # shellcheck (shell repos) + ripgrep (some test suites shell out to it),
-          # plus any caller-declared `packages`. OS-aware: brew on macOS, apt on
-          # Linux. `|| true`: a broken preinstalled third-party repo must not fail
-          # the gate — the base tools come from the always-present archive.
-          base="shellcheck ripgrep"
+          # ShellCheck for shell repos, ripgrep for test suites that shell out to
+          # it, plus any caller-declared `packages`: brew on macOS, apt on Linux.
+          # Only the apt index refresh may fail (a broken third-party repo on the
+          # image); a package that does not install fails the gate here.
+          read -ra pkgs <<< "shellcheck ripgrep $EXTRA_PACKAGES"
           if [ "$RUNNER_OS" = "macOS" ]; then
-            brew install $base $EXTRA_PACKAGES || true
+            brew install "${pkgs[@]}"
           else
             sudo apt-get update -qq || true
-            sudo apt-get install -y $base $EXTRA_PACKAGES || true
+            sudo apt-get install -y "${pkgs[@]}"
           fi
 
       - name: Run cordon checks
         env:
           CORDON_HOME: ${{ runner.temp }}/cordon
-        run: node "$CORDON_HOME/checks/run.mjs" --root "$PWD"
+        run: node "$CORDON_HOME/dist/checks/run.js" --root "$PWD"

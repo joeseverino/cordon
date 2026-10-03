@@ -6,7 +6,7 @@ into cordon's validator to prove conformance:
 
     python -m cordon_emit myapp.cli:build_parser -g Integrations -o 130
     python -m cordon_emit myapp.cli:build_parser -g X -o 1 | \\
-        node "$CORDON_HOME/conformance/validate.mjs" -
+        npx --yes --package cordon-spec@2 cordon-validate -
 
 The target is ``module:attribute`` where ``attribute`` is either a zero-arg
 callable returning a parser, or a parser object itself.

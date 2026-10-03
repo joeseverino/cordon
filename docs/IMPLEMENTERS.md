@@ -88,11 +88,11 @@ latter). It is opt-in and adds no dependency to the tool it wraps.
 ## Validate as you build
 
 ```bash
-your-tool --describe | node ../conformance/validate.mjs -
+your-tool --describe | node ../conformance/validate.ts -
 ```
 
 The harness applies both JSON Schema validation and the cross-field semantic
-rules in `conformance/semantics.mjs`. Reuse that harness instead of maintaining
+rules in `conformance/semantics.ts`. Reuse that harness instead of maintaining
 a private approximation when Cordon is available.
 
 Then add your tool to [`EMITTERS.md`](EMITTERS.md). If a fixture blocks you,

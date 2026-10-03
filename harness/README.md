@@ -19,7 +19,7 @@ Two pieces:
 ## Use
 
 ```sh
-node harness/gate.mjs <tool> [command] [args...]
+node harness/gate.ts <tool> [command] [args...]
 ```
 
 - `CORDON_POLICY=local` (default) — reads and writes run; `remote_write` /
@@ -42,5 +42,5 @@ node harness/gate.mjs <tool> [command] [args...]
 ## Verify
 
 ```sh
-node harness/selftest.mjs   # verdict + effect-resolution invariants
+node harness/selftest.ts   # verdict + effect-resolution invariants
 ```

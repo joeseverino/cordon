@@ -14,7 +14,7 @@ its **blast radius**, so an automated agent can risk-gate *before* it acts.
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
 - **Schema:** [`schema/cordon-v4.json`](schema/cordon-v4.json) · canonical `$id` `https://jseverino.com/schemas/cordon-v4.json`
-- **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.mjs`](conformance/validate.mjs)
+- **Conformance:** [`fixtures/`](fixtures/) + [`conformance/validate.ts`](conformance/validate.ts)
 - **Enforcement:** [`harness/`](harness/) · an opt-in, zero-dependency reference gate that risk-gates a command by its `effect` before it runs
 - **Checks verdict:** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json) + [`checks/`](checks/) · canonical `$id` `https://jseverino.com/schemas/cordon-checks-v2.json` — the repo-level sibling contract (*is this repo shippable?*)
 - **Plugin admission:** [`schema/cordon-plugin-admission-v1.json`](schema/cordon-plugin-admission-v1.json) + [`admission/`](admission/) — a signed, digest-bound verdict for artifacts that satisfy an explicit host policy; see [the trust model](docs/PLUGIN-ADMISSION.md)
@@ -127,14 +127,14 @@ See [`schema/cordon-v4.json`](schema/cordon-v4.json) for the full definition of
 ## Conformance
 
 An emitter conforms when its output validates against the schema, satisfies the
-cross-field rules in `conformance/semantics.mjs`, and behaves the way the
+cross-field rules in `conformance/semantics.ts`, and behaves the way the
 fixtures specify:
 
 ```bash
 npm ci
-node conformance/validate.mjs                 # run the fixture suite
-node conformance/validate.mjs path/to/out.json  # validate one document
-some-tool --describe | node conformance/validate.mjs -   # validate stdin
+node conformance/validate.ts                 # run the fixture suite
+node conformance/validate.ts path/to/out.json  # validate one document
+some-tool --describe | node conformance/validate.ts -   # validate stdin
 ```
 
 `fixtures/valid/` must pass; `fixtures/invalid/` must be rejected, each isolating
@@ -150,7 +150,7 @@ output of a portable checks runner ([`checks/`](checks/)).
 
 - **Its own schema.** [`schema/cordon-checks-v2.json`](schema/cordon-checks-v2.json),
   independently versioned (`schema_version: 2`); `cordon-v4.json` stays frozen.
-- **Same validator.** A verdict validates through `conformance/validate.mjs`, which
+- **Same validator.** A verdict validates through `conformance/validate.ts`, which
   picks the schema by shape — `commands[]` → surface, `checks[]` → verdict.
 - **Same vocabulary.** Every check carries an `effect` on the ladder above, so an
   agent reads the cost of *producing* a verdict in the same terms as a command.
@@ -162,21 +162,19 @@ lives in [`checks/README.md`](checks/README.md).
 
 ## Consuming cordon from another repo
 
-`conformance/validate.mjs` is the **supported way for another repo to validate
-its own contracts**, not just cordon's internal CI tool. Single-document mode is
-a stable entry point within a schema version:
+The `cordon-spec` npm package is how another repo validates its contracts and
+runs the checks. Pin it as a dev dependency, or run it through `npx`:
 
 ```bash
-node "$CORDON_HOME/conformance/validate.mjs" path/to/contract.json   # exit 0 valid, 1 invalid
+npx --yes --package cordon-spec@2 cordon-validate path/to/contract.json   # exit 0 valid, 1 invalid
+npx --yes --package cordon-spec@2 cordon-checks --root .                  # the checks the gate runs
 ```
 
-**Reference this repo; don't vendor the schema.** A copied `cordon-v4.json`
-drifts silently, and the published `https://jseverino.com/schemas/cordon-v4.json`
-is bot-gated (200 in a browser, 403 from CI / datacenter IPs). Point a
-`$CORDON_HOME`-style variable at a checkout of this repo — a local clone, or a CI
-checkout of the public repo — and call the validator from there. You then
-validate against the exact, byte-identical schema for the version your contract
-pins (the canonical home is the live `$id` URL; this repo is its mirror).
+The package ships the schema it validates against (`cordon-spec/schema/*`), so
+a contract is always checked against the exact, byte-identical schema for its
+version. Don't copy the schema into another repo; a copy drifts. The canonical
+home is the live `$id` URL, which is bot-gated (403 from CI addresses), so
+validate through the package rather than fetching the URL.
 
 ## Writing an emitter
 

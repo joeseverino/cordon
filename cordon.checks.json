@@ -1,7 +1,7 @@
 {
   "$schema": "./checks/config.schema.json",
   "idempotence": {
-    "command": "node checks/run.mjs --schema > checks/config.schema.json"
+    "command": "node checks/run.ts --schema > checks/config.schema.json"
   },
   "commands": [
     {
@@ -10,7 +10,7 @@
       "effect": "read",
       "requires": ["node"],
       "exec": { "cmd": "npm", "args": ["test"] },
-      "fix": "Run `npm test` (conformance/validate.mjs + checks/selftest.mjs) and fix the reported divergence; if a contract shape changed legitimately, update the schema, fixtures, and emitters together."
+      "fix": "Run `npm test` (conformance/validate.ts + checks/selftest.ts) and fix the reported divergence; if a contract shape changed legitimately, update the schema, fixtures, and emitters together."
     },
     {
       "id": "py-emitter",
@@ -25,8 +25,8 @@
       "name": "Harness verdict self-test",
       "effect": "read",
       "requires": ["node"],
-      "exec": { "cmd": "node", "args": ["harness/selftest.mjs"] },
-      "fix": "Run `node harness/selftest.mjs` and fix the reported divergence in harness/policy.mjs."
+      "exec": { "cmd": "node", "args": ["harness/selftest.ts"] },
+      "fix": "Run `node harness/selftest.ts` and fix the reported divergence in harness/policy.ts."
     }
   ]
 }
