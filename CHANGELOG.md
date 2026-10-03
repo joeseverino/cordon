@@ -12,6 +12,28 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [2.0.0](https://github.com/joeseverino/cordon/compare/v1.4.0...v2.0.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* callers move to @v2; the website/Django checks, builtDirs, CORDON_HOME, and the separate emitters/node package no longer exist.
+
+### Features
+
+* add cryptographic plugin admission ([#61](https://github.com/joeseverino/cordon/issues/61)) ([a5f2f2d](https://github.com/joeseverino/cordon/commit/a5f2f2d2c11e33abe1be6ab04e5961f3c2f4a739))
+* cordon 2: TypeScript engine, versioned gate, scoped to tool repos ([#67](https://github.com/joeseverino/cordon/issues/67)) ([409a473](https://github.com/joeseverino/cordon/commit/409a473a38bffaa5660b140eb9c43347a9e8bd39))
+
+
+### Bug Fixes
+
+* .env.tpl templates are not tracked secrets ([#70](https://github.com/joeseverino/cordon/issues/70)) ([68bd437](https://github.com/joeseverino/cordon/commit/68bd4375cfc4c32dae2080144be6bfdc4544ccaf))
+* **emitter:** normalize multi-value metavars ([#57](https://github.com/joeseverino/cordon/issues/57)) ([75c0bd3](https://github.com/joeseverino/cordon/commit/75c0bd32ce1c60e6d68b02e2fa0ae8dabecc801e))
+* gate fetches the engine at v2 by default ([#69](https://github.com/joeseverino/cordon/issues/69)) ([4034f60](https://github.com/joeseverino/cordon/commit/4034f603f36e9bf37729463991cd9176268e3272))
+* **publish:** repository field — npm provenance verifies against the repo claim ([#56](https://github.com/joeseverino/cordon/issues/56)) ([d2d461a](https://github.com/joeseverino/cordon/commit/d2d461a97f6c1369cfa6de64bcc8d99e80894815))
+* **publish:** workflow_dispatch fallback — bot-created releases don't cascade ([#54](https://github.com/joeseverino/cordon/issues/54)) ([8413e83](https://github.com/joeseverino/cordon/commit/8413e83b3a4faae7ba3b7b0682a34028ff52900e))
+* tag releases vX.Y.Z, not cordon-spec-vX.Y.Z ([#68](https://github.com/joeseverino/cordon/issues/68)) ([a8b6535](https://github.com/joeseverino/cordon/commit/a8b65354640d14dc798209a97f3dbf9facd2d280))
+
 ## [1.4.0](https://github.com/joeseverino/cordon/compare/v1.3.0...v1.4.0) (2026-07-05)
 
 
