@@ -159,6 +159,26 @@ export const CATALOG: CommandSpec[] = [
     fix: 'Run `node scripts/gen-readme.mjs` to regenerate the README reference block.',
   },
 
+  // ── Go ─ go.mod present ─────────────────────────────────────────────────────
+  {
+    id: 'gofmt', name: 'gofmt', effect: 'read',
+    requires: ['file:go.mod', 'go'],
+    exec: { cmd: 'sh', args: ['-c', 'out=$(gofmt -l .) && [ -z "$out" ] || { printf "%s\\n" "$out"; exit 1; }'] },
+    fix: 'Run `gofmt -w .`.',
+    fixExec: { cmd: 'gofmt', args: ['-w', '.'] },
+  },
+  {
+    id: 'go-vet', name: 'go vet', effect: 'read',
+    requires: ['file:go.mod', 'go'],
+    exec: { cmd: 'go', args: ['vet', './...'] },
+    fix: 'Run `go vet ./...` and fix the reported lines.',
+  },
+  {
+    id: 'go-test', name: 'go test', effect: 'read',
+    requires: ['file:go.mod', 'go'],
+    exec: { cmd: 'go', args: ['test', './...'] },
+    fix: 'Run `go test ./...` and fix the failing test.',
+  },
   // ── Shell ─ tracked shell scripts + bats suite ──────────────────────────────
   {
     id: 'shellcheck', name: 'ShellCheck', effect: 'read',

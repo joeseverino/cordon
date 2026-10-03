@@ -52,7 +52,8 @@ A command can reach the engine three ways, and the **common case is none of your
 doing**:
 
 1. **cordon's catalog** (`catalog.ts`) — per-stack checks (`ruff`/`pytest` for a
-   uv repo, `conformance`/`drift` for a cordon-tool repo, `shellcheck`/`bats`
+   uv repo, `gofmt`/`go-vet`/`go-test` for a Go module, `conformance`/`drift`
+   for a cordon-tool repo, `shellcheck`/`bats`
    for a shell toolchain). Each is gated by a stack marker
    (`file:pyproject.toml`, `file:contract`, `glob:**/*.sh`…), so it lights up
    **only** where its stack is present. A repo gets them with no config. `pytest`
