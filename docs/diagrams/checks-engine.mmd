@@ -10,7 +10,7 @@ flowchart TB
     inv ==> engine
     cmd ==> engine
 
-    gate{"does the repo have<br/>what the check requires?<br/>git · macos · built-dir · «binary»"}
+    gate{"does the repo have<br/>what the check requires?<br/>git · macos · file: · «binary»"}
     engine ==> gate
 
     gate -->|"yes"| run["run it in phase order<br/>pre-build → build → post-build"]

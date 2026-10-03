@@ -1,12 +1,10 @@
 # The reusable release
 
-One workflow, reused by every Severino repo, so release logic lives in exactly
-one place. The sibling of [the reusable gate](./REUSABLE-GATE.md): the gate
-answers *"is this repo green?"*, this **cuts the version when it is**. A repo
-releases by *calling* it — it never copies release-please config, the pinned
-action, or token plumbing.
+The sibling of [the reusable gate](./REUSABLE-GATE.md): the gate answers "is
+this repo green?", this cuts the version when it is. A repo releases by calling
+it and never copies release-please config, the pinned action, or token handling.
 
-## Adopt it (the whole release file)
+## Adopt it
 
 ```yaml
 # .github/workflows/release.yml
@@ -15,35 +13,23 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 jobs:
   cordon:
-    uses: joeseverino/cordon/.github/workflows/cordon-release.yml@main
-    # release-type defaults to "simple" (a version.txt). A typed repo overrides:
-    # with: { release-type: node }   # or python, go, …
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: joeseverino/cordon/.github/workflows/cordon-release.yml@v2
+    # with: { release-type: node }   # default: simple (version.txt)
 ```
 
-That's the entire release surface of a consuming repo. The status check is
-`cordon / release` — the sibling of the gate's `cordon / gate`.
+The status check is `cordon / release`. Once per repo, allow Actions to open
+pull requests:
 
-## The one-time per-repo setting (required)
-
-GitHub blocks Actions from opening PRs by default, so **once per repo**:
-
-> **Settings → Actions → General → Workflow permissions →**
-> ✅ **"Allow GitHub Actions to create and approve pull requests"**
-
-Or via the CLI:
-
-```bash
+```sh
 gh api -X PUT repos/<owner>/<repo>/actions/permissions/workflow \
   -F can_approve_pull_request_reviews=true
 ```
-
-Without it the release PR cannot be opened and the run fails with
-*"GitHub Actions is not permitted to create or approve pull requests."*
-This is the only manual step, and it is per repo.
 
 ## How a release happens
 
@@ -52,44 +38,49 @@ This is the only manual step, and it is per repo.
 `main`:
 
 1. it reads the Conventional Commit titles since the last release and computes
-   the next SemVer (`fix`→patch, `feat`→minor, `feat!`/`BREAKING CHANGE`→major);
-2. it maintains **one standing release PR** — `chore(main): release X.Y.Z` —
-   that bumps the version file and regenerates `CHANGELOG.md`;
-3. **merging that PR** cuts the `vX.Y.Z` tag and the GitHub Release. Nothing
-   ships until then — the release PR is your review-and-iterate surface (let more
-   work accumulate, or set `Release-As: X.Y.Z` in a commit to force a number).
+   the next version (`fix` → patch, `feat` → minor, `feat!` or `BREAKING CHANGE`
+   → major);
+2. it keeps one standing release PR, `chore(main): release X.Y.Z`, that bumps
+   the version and regenerates `CHANGELOG.md`;
+3. merging that PR cuts the `vX.Y.Z` tag and the GitHub Release.
 
-Every run writes a one-line **summary** to the Actions run summary — *released*,
-*release PR ready*, or *nothing to release* — the release-side sibling of the
-gate's checks report.
+Each run writes one line to the run summary: released, release PR ready, or
+nothing to release. The workflow also returns `release_created` and `tag_name`,
+so a caller can publish in a job that `needs:` it (cordon's own
+[`release.yml`](../.github/workflows/release.yml) does).
 
-## Pick a `release-type`
+## Inputs
 
-Logic is central; the version source is local. `simple` is the default so a
-brand-new repo needs no manifest at all.
-
-| `release-type` | Version lives in | Use for |
+| Input | Default | What |
 | --- | --- | --- |
-| `simple` (default) | `version.txt` | anything without a package manifest (shell tools, docs, the starter) |
-| `node` | `package.json` | npm packages (cordon itself) |
-| `python` | `pyproject.toml` / `__init__.py` | Python apps + libs |
+| `release-type` | `simple` | `simple` (`version.txt`), `node`, `python`, …, or `manifest` to read `release-please-config.json` |
+| `float-major` | `false` | Move a `vN` tag to each new `vN.x.y`, so callers can follow `@vN` |
+| `app-client-id` | | A GitHub App to open release PRs as (with the `app-private-key` secret) |
 
-For `simple`, seed a `version.txt` (e.g. `0.1.0`) once; the typed strategies
-read the version from the manifest you already have, so they need nothing extra.
+`manifest` is for a repo that versions several files together. cordon uses it to
+keep the npm package and the Python emitter on one version.
 
-## Changing things
+## Release PRs and required checks
 
-- **Release behavior for every repo** → edit `cordon-release.yml` here. One
-  change, all repos.
-- **A repo's version source** → its `release-type:` line (and `version.txt` for
-  `simple`).
-- **Gated release PRs** → pass a PAT/App token as the `token` secret so the
-  release PR re-triggers the gate; otherwise it's opened with `GITHUB_TOKEN`,
-  which (by design) doesn't re-trigger `pull_request` workflows. Review by hand
-  until you wire a token.
+A pull request opened with the default `GITHUB_TOKEN` never triggers workflows,
+so a required `cordon / gate` never reports on the release PR and it cannot
+merge without an admin override. Give the workflow a GitHub App and the release
+PR is opened as the app, which does trigger CI:
 
-## Pinning the release workflow
+1. create a GitHub App with Contents and Pull requests read/write, and install
+   it on the repos that release;
+2. store its private key as the `RELEASE_APP_PRIVATE_KEY` secret;
+3. pass both:
 
-`@main` tracks the latest. Pin `@<tag>` (or a SHA) for reproducibility;
-Dependabot (github-actions ecosystem) keeps both that reference and the pinned
+```yaml
+    with:
+      app-client-id: <the app's client ID>
+    secrets:
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+```
+
+## Versions
+
+`@v2` follows the latest 2.x release, the same way the gate does. Pin
+`@vX.Y.Z` to freeze it; Dependabot keeps that reference and the pinned
 release-please action current.

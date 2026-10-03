@@ -84,20 +84,29 @@ config that activates them does not, so each clone enables them once.
 - `pre-commit` — refuses commits on `main`/`master` (bypass: `ALLOW_MAIN_COMMIT=1`).
 - `commit-msg` — rejects AI co-author / tool attribution trailers; commits stay
   solo-authored (bypass: `git commit --no-verify`).
-- `pre-push` — runs `npm test` (the conformance gate CI runs), so red never
-  leaves the machine (bypass: `git push --no-verify`).
+- `pre-push` — runs `npm test` and the checks engine over this repo (what CI
+  runs), so red never leaves the machine (bypass: `git push --no-verify`).
+
+## Code
+
+TypeScript throughout, run directly by Node 24 (type stripping, no build step
+locally). `npm run build` emits `dist/` for the published package; the bins point
+there. Keep syntax erasable (`erasableSyntaxOnly`): no enums, namespaces, or
+parameter properties.
 
 ## Verification
 
 Run:
 
 ```sh
+npm run typecheck
 npm test
+node checks/run.ts --root .
 git diff --check
 ```
 
 For an external emitter:
 
 ```sh
-some-tool --describe | node conformance/validate.mjs -
+some-tool --describe | node conformance/validate.ts -
 ```

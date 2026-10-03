@@ -15,14 +15,8 @@ Thumbs.db
 .gemini/
 .obsidian/
 
-# Node deps — node_modules is a symlink to node_modules.nosync; the `.nosync`
-# suffix tells iCloud Drive never to sync the dependency tree (no eviction, no
-# conflict copies, no corrupted installs). Commit the lockfile, not the tree.
-node_modules
-node_modules.*
-node_modules [0-9]*
-# Holding dir for manually-quarantined iCloud node_modules conflict copies.
-node_modules_conflict_tmp/
+# Node deps — commit the lockfile, not the tree.
+node_modules/
 
 # Environment / secrets — keep the .example templates (mirrors the
 # repository-policy check, which exempts *.example).
@@ -61,9 +55,3 @@ pnpm-debug.log*
 # A repo that validates against cordon checks it out here for CI; inert in
 # cordon itself. Never committed.
 /.cordon/
-
-# iCloud Drive conflict copies — this tree lives in iCloud Drive, which appends
-# " 2", " 3", … to files/dirs it thinks conflict (this is what ate a
-# node_modules symlink mid-session). Never commit them.
-* [0-9]
-* [0-9].*

@@ -7,9 +7,9 @@ one [Cordon v4 contract](../../schema/cordon-v4.json). `--describe` becomes a
 machine-readable view of the exact parser that produces `--help`, so the two
 can't drift.
 
-Pure stdlib, zero dependencies. **Reference it from a cordon checkout
-(`$CORDON_HOME`); don't vendor it** — a copy drifts from the schema in the same
-repo.
+Pure stdlib, zero dependencies, published to PyPI as `cordon-emit` on the same
+version as cordon. Add it as a dependency; never copy it, since a copy drifts
+from the schema it targets.
 
 ## So easy — one line
 
@@ -56,7 +56,7 @@ cordon's validator:
 ```sh
 python -m cordon_emit myapp.cli:build_parser -g Integrations -o 130
 python -m cordon_emit myapp.cli:build_parser -g X -o 1 \
-  | node "$CORDON_HOME/conformance/validate.mjs" -      # exit 0 = conformant
+  | npx --yes --package cordon-spec@2 cordon-validate -      # exit 0 = conformant
 ```
 
 That's a contract — and a conformance check — for an existing Python CLI with no
@@ -77,23 +77,15 @@ timestamps, stable order) — a guard can diff it.
 
 ## Install
 
-Reference in place (preferred):
-
-```python
-import sys; sys.path.insert(0, f"{os.environ['CORDON_HOME']}/emitters/python")
-```
-
-or install it:
-
 ```sh
-pip install "$CORDON_HOME/emitters/python"
+uv add cordon-emit
 ```
 
 ## Verify
 
 ```sh
 python3 emitters/python/selftest.py            # structural + byte-parity with the bash leaf fixture
-python3 emitters/python/selftest.py --emit | node ../../conformance/validate.mjs -
+python3 emitters/python/selftest.py --emit | node ../../conformance/validate.ts -
 ```
 
 The selftest also proves convergence: introspecting an `encrypt`-shaped parser

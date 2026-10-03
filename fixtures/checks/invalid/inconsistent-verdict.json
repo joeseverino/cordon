@@ -11,7 +11,7 @@
       "durationMs": 4,
       "effect": "read",
       "fix": "Fix the policy violation.",
-      "rerun": "node checks/run.mjs --only policy"
+      "rerun": "node checks/run.ts --only policy"
     }
   ]
 }

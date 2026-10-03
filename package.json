@@ -1,35 +1,59 @@
 {
   "name": "cordon-spec",
   "version": "1.4.0",
-  "description": "Cordon \u2014 a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
+  "description": "Cordon — a language-agnostic command-surface contract: declare a tool once, render every view from it, and carry each command's blast radius so agents can risk-gate before they act.",
   "type": "module",
   "license": "MIT",
-  "scripts": {
-    "test": "node conformance/validate.mjs && node checks/selftest.mjs && node admission/selftest.mjs",
-    "checks": "node checks/run.mjs"
+  "engines": {
+    "node": ">=24.21.0"
   },
-  "dependencies": {
-    "ajv": "^8.17.1"
+  "packageManager": "npm@11.19.0",
+  "bin": {
+    "cordon-checks": "dist/checks/run.js",
+    "cordon-validate": "dist/conformance/validate.js",
+    "cordon-emit": "dist/emitters/node/cli.js",
+    "cordon-gate": "dist/harness/gate.js",
+    "cordon-admission": "dist/admission/verify.js",
+    "cordon-admission-create": "dist/admission/create.js",
+    "cordon-admission-evidence": "dist/admission/evidence.js",
+    "cordon-admission-lock": "dist/admission/lock.js"
+  },
+  "exports": {
+    "./emit": {
+      "types": "./dist/emitters/node/index.d.ts",
+      "default": "./dist/emitters/node/index.js"
+    },
+    "./harness": {
+      "types": "./dist/harness/policy.d.ts",
+      "default": "./dist/harness/policy.js"
+    },
+    "./schema/*": "./schema/*",
+    "./package.json": "./package.json"
   },
   "files": [
+    "dist/",
     "schema/",
-    "admission/",
-    "checks/",
-    "conformance/",
-    "harness/",
     "fixtures/",
+    "checks/config.schema.json",
+    "checks/lib/shellcheck-repo.sh",
     "docs/EMITTERS.md",
     "docs/IMPLEMENTERS.md",
     "docs/REUSABLE-GATE.md",
     "docs/PLUGIN-ADMISSION.md"
   ],
-  "bin": {
-    "cordon-checks": "checks/run.mjs",
-    "cordon-validate": "conformance/validate.mjs",
-    "cordon-admission-create": "admission/create.mjs",
-    "cordon-admission-evidence": "admission/evidence.mjs",
-    "cordon-admission-lock": "admission/lock.mjs",
-    "cordon-admission": "admission/verify.mjs"
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc -p .",
+    "test": "node conformance/validate.ts && node checks/selftest.ts && node admission/selftest.ts && node harness/selftest.ts && node emitters/node/selftest.ts",
+    "checks": "node checks/run.ts"
+  },
+  "dependencies": {
+    "ajv": "8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "typescript": "6.0.3"
   },
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://jseverino.com/schemas/cordon-checks-v3.json",
-  "$comment": "Canonical home: https://jseverino.com/schemas/cordon-checks-v3.json (the value of $id above) \u2014 the live, immutable URL this schema_version pins. The copy in the cordon repo at schema/cordon-checks-v3.json is the byte-identical development mirror; reference it for validation. v3 extends v2 (phase + unmet) with the autofix seam: a check row may carry status 'fixed' (it failed, a declared repair ran, and the RE-RUN passed \u2014 a fixed row is proven, never trusted), the top-level `fixed` array names those ids, and `repair` records what the repair did. Repairs run only under --fix; a plain run never mutates. checks/run.mjs --json is the reference emitter.",
+  "$comment": "Canonical home: https://jseverino.com/schemas/cordon-checks-v3.json (the value of $id above) \u2014 the live, immutable URL this schema_version pins. The copy in the cordon repo at schema/cordon-checks-v3.json is the byte-identical development mirror; reference it for validation. v3 extends v2 (phase + unmet) with the autofix seam: a check row may carry status 'fixed' (it failed, a declared repair ran, and the RE-RUN passed \u2014 a fixed row is proven, never trusted), the top-level `fixed` array names those ids, and `repair` records what the repair did. Repairs run only under --fix; a plain run never mutates. checks/run.ts --json is the reference emitter.",
   "title": "Cordon checks verdict (schema_version 3)",
   "type": "object",
   "additionalProperties": false,

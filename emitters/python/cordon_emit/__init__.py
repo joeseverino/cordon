@@ -12,9 +12,8 @@ validates against ``schema/cordon-v4.json``. It reads documented argparse
 internals (``_actions``, ``_SubParsersAction``, ``_choices_actions``) — the
 stable, widely-used way to walk a parser without re-declaring its shape.
 
-Reference, don't vendor: import this from a checkout of cordon (``$CORDON_HOME``)
-or ``pip install $CORDON_HOME/emitters/python``. A copied emitter drifts; this
-one tracks the schema in the same repo.
+Install it from PyPI (``uv add cordon-emit``); never vendor it, since a copied
+emitter drifts from the schema it targets.
 
 Typical use in a CLI's entry point::
 

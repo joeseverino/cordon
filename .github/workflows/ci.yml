@@ -1,8 +1,7 @@
-# cordon rides its own reusable gate, like every repo in the fleet — so its
-# check lines up too: `cordon / gate`. The conformance suite (npm test) and the
-# config-schema idempotence guard are declared as checks in cordon.checks.json;
-# the gate runs them. A LOCAL ref (./…) is used on purpose: a PR is gated by the
-# gate + checks it actually ships, not by main's copy.
+# cordon rides its own reusable gate, like every repo in the fleet, so its check
+# lines up too: `cordon / gate`. A local ref (./…) runs this branch's workflow,
+# and `cordon-ref` points the engine at this branch's commit, so a pull request
+# is gated by the workflow and the checks it actually ships.
 name: ci
 
 on:
@@ -13,3 +12,5 @@ on:
 jobs:
   cordon:
     uses: ./.github/workflows/cordon-gate.yml
+    with:
+      cordon-ref: ${{ github.event.pull_request.head.sha || github.sha }}

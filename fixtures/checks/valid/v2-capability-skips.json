@@ -28,7 +28,7 @@
       "effect": "read",
       "phase": "post-build",
       "fix": "A built page references an internal URL the build did not emit. Fix the link, or restore the missing target.",
-      "rerun": "node checks/run.mjs --only internal-links"
+      "rerun": "node checks/run.ts --only internal-links"
     },
     {
       "id": "browser-tests",

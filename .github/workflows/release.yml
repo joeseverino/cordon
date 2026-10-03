@@ -1,10 +1,8 @@
-# release — cordon cuts its own versions through its own reusable workflow.
-#
-# This is the exact three-line call every consuming repo makes (see
-# docs/RELEASE.md); cordon dogfoods it. The logic lives in cordon-release.yml.
-# cordon is an npm package, so it overrides the default `simple` release-type
-# with `node` (version read from package.json). Status check: `cordon / release`
-# — the sibling of the gate's `cordon / gate`.
+# release — cordon cuts its own versions through its own reusable workflow,
+# exactly as every consuming repo does (docs/RELEASE.md). One version covers the
+# npm package and the Python emitter (release-please-config.json). When a
+# release is cut, `v2` moves to it and both packages publish with provenance
+# through trusted publishing, so no token is stored anywhere.
 name: release
 
 on:
@@ -21,4 +19,48 @@ jobs:
       pull-requests: write
     uses: ./.github/workflows/cordon-release.yml
     with:
-      release-type: node
+      release-type: manifest
+      float-major: true
+
+  npm:
+    name: Publish cordon-spec to npm
+    needs: cordon
+    if: ${{ needs.cordon.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.0
+      - run: npm ci
+      - run: npm publish
+
+  pypi:
+    name: Publish cordon-emit to PyPI
+    needs: cordon
+    if: ${{ needs.cordon.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Build sdist and wheel
+        run: uv build
+        working-directory: emitters/python
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: emitters/python/dist
