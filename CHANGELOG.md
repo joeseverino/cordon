@@ -12,6 +12,13 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [2.1.0](https://github.com/joeseverino/cordon/compare/v2.0.1...v2.1.0) (2026-10-03)
+
+
+### Features
+
+* Go repos get gofmt, go vet and go test from go.mod ([#74](https://github.com/joeseverino/cordon/issues/74)) ([5b3509f](https://github.com/joeseverino/cordon/commit/5b3509f535dcccbce5a6cfef27960f3cda129617))
+
 ## [2.0.1](https://github.com/joeseverino/cordon/compare/v2.0.0...v2.0.1) (2026-10-03)
 
 
