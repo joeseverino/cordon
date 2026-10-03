@@ -12,6 +12,13 @@ Cordon versions on two axes:
 Releases from v1.1.0 on are cut by [release-please](https://github.com/googleapis/release-please):
 the sections below this line are generated from Conventional Commit titles.
 
+## [2.0.1](https://github.com/joeseverino/cordon/compare/v2.0.0...v2.0.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* gate passes --extra dev only for a dev extra, not a dev group ([#72](https://github.com/joeseverino/cordon/issues/72)) ([3a144e5](https://github.com/joeseverino/cordon/commit/3a144e5ac7cf2982a61716e05572fc8cb50c1d19))
+
 ## [2.0.0](https://github.com/joeseverino/cordon/compare/v1.4.0...v2.0.0) (2026-10-03)
 
 
