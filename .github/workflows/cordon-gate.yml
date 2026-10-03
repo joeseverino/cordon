@@ -5,7 +5,7 @@
 #
 #   jobs:
 #     cordon:
-#       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@v1
+#       uses: joeseverino/cordon/.github/workflows/cordon-gate.yml@v2
 #
 # It checks the caller out, brings cordon's engine + schema along, auto-detects
 # the stack (Python → uv deps, Node → npm deps; everything gets node + shellcheck
@@ -19,8 +19,8 @@
 # Inputs: `runner` (default ubuntu-latest) and `packages` (extra brew/apt tooling)
 # let a repo that needs macOS or a specific toolchain still ride the one gate.
 #
-# Versioning: `@v1` follows the latest 1.x release, and the engine is fetched at
-# `cordon-ref` (default `v1` too), so the workflow and the checks it runs come
+# Versioning: `@v2` follows the latest 2.x release, and the engine is fetched at
+# `cordon-ref` (default `v2` too), so the workflow and the checks it runs come
 # from the same release. Pin both to a `vX.Y.Z` tag to freeze them.
 name: cordon gate
 
@@ -28,9 +28,9 @@ on:
   workflow_call:
     inputs:
       cordon-ref:
-        description: "The cordon tag, branch, or commit that provides the engine and schema (default: v1, the latest 1.x release)."
+        description: "The cordon tag, branch, or commit that provides the engine and schema (default: v2, the latest 2.x release)."
         type: string
-        default: v1
+        default: v2
       runner:
         description: "Runner image. Default ubuntu-latest; pass macos-latest for repos that need macOS (Keychain, a brew toolchain)."
         type: string
