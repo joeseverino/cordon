@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { Ajv2020, type SchemaObject } from 'ajv/dist/2020.js';
 import { cordonAsset } from '../lib/root.ts';
+import { failer, parseOptions, sha256 } from './_common.ts';
+import type { Fail } from './_common.ts';
 
 const required = [
   'statement', 'bundle', 'artifact', 'identity', 'issuer', 'repository',
   'workflow', 'host', 'plugin-id', 'policy-sha',
 ] as const;
-type Options = Record<(typeof required)[number], string>;
 
 // The schema-validated shape of schema/cordon-plugin-admission-v1.json.
 interface Statement {
@@ -23,32 +23,9 @@ interface Statement {
   policy: { id: string; version: number; sha256: string };
 }
 
-function fail(message: string): never {
-  console.error(`cordon admission: ${message}`);
-  process.exit(1);
-}
+const fail: Fail = failer('cordon admission');
 
-function options(argv: string[]): Options {
-  const parsed: Record<string, string> = {};
-  for (let index = 0; index < argv.length; index += 2) {
-    const flag = argv[index];
-    const value = argv[index + 1];
-    if (!flag?.startsWith('--') || value === undefined) fail('options require --name value pairs');
-    parsed[flag.slice(2)] = value;
-  }
-  assertComplete(parsed);
-  return parsed;
-}
-
-function assertComplete(parsed: Record<string, string>): asserts parsed is Options {
-  for (const name of required) if (!parsed[name]) fail(`missing --${name}`);
-}
-
-function sha256(file: string) {
-  return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-}
-
-const args = options(process.argv.slice(2));
+const args = parseOptions(process.argv.slice(2), required, fail);
 const schema: SchemaObject = JSON.parse(fs.readFileSync(cordonAsset('schema', 'cordon-plugin-admission-v1.json'), 'utf8'));
 const statement: unknown = JSON.parse(fs.readFileSync(args.statement, 'utf8'));
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile<Statement>(schema);
@@ -56,7 +33,7 @@ if (!validate(statement)) {
   fail(`invalid statement: ${(validate.errors || []).map((item) => `${item.instancePath || '/'} ${item.message}`).join('; ')}`);
 }
 
-const cosign = process.env.CORDON_COSIGN || 'cosign';
+const cosign = process.env['CORDON_COSIGN'] || 'cosign';
 try {
   execFileSync(cosign, [
     'verify-blob', args.statement,

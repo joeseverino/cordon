@@ -45,7 +45,7 @@
     "build": "tsc -p tsconfig.build.json",
     "prepack": "npm run build",
     "typecheck": "tsc -p .",
-    "test": "node conformance/validate.ts && node checks/selftest.ts && node admission/selftest.ts && node harness/selftest.ts && node emitters/node/selftest.ts",
+    "test": "node --test",
     "checks": "node checks/run.ts"
   },
   "dependencies": {
@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@types/node": "24.19.1",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "repository": {
     "type": "git",

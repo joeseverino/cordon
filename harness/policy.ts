@@ -8,18 +8,25 @@
 // points.
 
 import fs from 'node:fs';
+import { isRecord } from '../lib/guards.ts';
 import { cordonAsset } from '../lib/root.ts';
 
 // Source the ladder from the canonical schema so it can never drift from a
 // hand-kept copy — the same one-source-of-truth rule the contract itself follows.
-const schema: { $defs: { effect: { enum: string[] } } } = JSON.parse(
-  fs.readFileSync(cordonAsset('schema', 'cordon-v4.json'), 'utf8'),
-);
-export const EFFECTS = schema.$defs.effect.enum;
+function effectLadder(schema: unknown): string[] {
+  const defs = isRecord(schema) ? schema['$defs'] : undefined;
+  const effect = isRecord(defs) ? defs['effect'] : undefined;
+  const ladder = isRecord(effect) ? effect['enum'] : undefined;
+  if (!Array.isArray(ladder) || !ladder.every((rung) => typeof rung === 'string')) {
+    throw new Error('cordon: schema/cordon-v4.json has no $defs.effect.enum ladder');
+  }
+  return ladder;
+}
+
+export const EFFECTS = effectLadder(JSON.parse(fs.readFileSync(cordonAsset('schema', 'cordon-v4.json'), 'utf8')));
 
 // What an enforcement point does with a declared effect.
 export type Decision = 'allow' | 'confirm' | 'block';
-export const DECISIONS: Decision[] = ['allow', 'confirm', 'block'];
 
 export interface Preset {
   default: Decision;

@@ -89,7 +89,7 @@ export const CATALOG: CommandSpec[] = [
     // null ⇒ the single `uv run pytest -q` above. Runs locally too, not just CI.
     expand: ({ root, config }) => {
       const declared = readPyproject(root);
-      const versions: string[] = Array.isArray(config.pythonVersions) ? config.pythonVersions : declared.versions;
+      const versions: string[] = Array.isArray(config['pythonVersions']) ? config['pythonVersions'] : declared.versions;
       if (!versions || versions.length === 0) return null;
       const extras: string[] = declared.extras;
       const extra = extras.includes('dev') ? ['--extra', 'dev'] : [];

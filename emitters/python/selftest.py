@@ -72,7 +72,7 @@ def _check(cond: bool, msg: str) -> None:
 
 
 def _assert_invariants(doc: dict) -> None:
-    """The cross-field rules the schema + semantics.mjs enforce, checked locally."""
+    """The cross-field rules the schema + semantics.ts enforce, checked locally."""
     _check(doc["ok"] is True, "ok must be true")
     _check(doc["schema_version"] == 4, "schema_version must be 4")
     for key in ("name", "description", "group", "order", "effect"):

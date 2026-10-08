@@ -14,7 +14,7 @@ verdict, then by its `schema_version` (`schema/cordon-checks-v1.json` or
 `admission/valid` and `admission/invalid` exercise the independently versioned
 plugin-admission predicate. They pin immutable source and digest-shaped
 evidence; cryptographic bundle verification is covered by
-`admission/selftest.ts`.
+`admission/admission.test.ts`.
 
 ## Command surface — `schema/cordon-v4.json`
 

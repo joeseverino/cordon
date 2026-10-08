@@ -66,7 +66,7 @@ function globMatches(root: string, pattern: string): boolean {
 function makeBinaryResolver(root: string): (bin: string) => boolean {
   const cache = new Map<string, boolean>();
   const dirs = [
-    ...(process.env.PATH || '').split(path.delimiter).filter(Boolean),
+    ...(process.env['PATH'] || '').split(path.delimiter).filter(Boolean),
     path.join(root, 'node_modules', '.bin'),
   ];
   return (bin) => {
@@ -108,7 +108,7 @@ export function detect(root: string): Capabilities {
     switch (cap) {
       case 'git': return isGitWorkTree(root);
       case 'macos': return process.platform === 'darwin';
-      case 'ci': return Boolean(process.env.CI);
+      case 'ci': return Boolean(process.env['CI']);
       default: return resolveBinary(cap); // any other token is a binary name
     }
   };

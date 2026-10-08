@@ -84,8 +84,8 @@ Plus two optional boolean tags, emitted only when `true`:
 confirm before a `deploy`, fail closed when non-interactive. The signal lives in
 the contract; the policy lives in the consumer. Cordon ships a runnable reference
 for that policy: an opt-in, zero-dependency enforcement point in
-[`harness/`](harness/) — `policy.mjs` decides (`allow` / `confirm` / `block`) and
-`gate.mjs` wraps a tool's `--describe` to gate it before it runs. A consumer can
+[`harness/`](harness/) — `policy.ts` decides (`allow` / `confirm` / `block`) and
+`gate.ts` wraps a tool's `--describe` to gate it before it runs. A consumer can
 use it directly or implement the same behavior natively. (Behavior spec:
 [`docs/IMPLEMENTERS.md`](docs/IMPLEMENTERS.md#the-runtime-gate).)
 
@@ -94,7 +94,7 @@ use it directly or implement the same behavior natively. (Behavior spec:
 <sup>Diagram source: [`docs/diagrams/effect-ladder.mmd`](docs/diagrams/effect-ladder.mmd),
 pre-rendered with [`diagram`](https://github.com/joeseverino/tools/blob/main/bin/diagram).</sup>
 
-![Cordon decides the rules — the effect ladder and the verdict — and two enforcement points apply them: cordon's reference gate (gate.mjs) and a consumer's native gate (e.g. the bash tools gate), each resolving to allow, confirm, or block before the command runs.](docs/diagrams/harness-gate.png)
+![Cordon decides the rules — the effect ladder and the verdict — and two enforcement points apply them: cordon's reference gate (gate.ts) and a consumer's native gate (e.g. the bash tools gate), each resolving to allow, confirm, or block before the command runs.](docs/diagrams/harness-gate.png)
 
 <sup>One source of rules, many enforcement points. Diagram source:
 [`docs/diagrams/harness-gate.mmd`](docs/diagrams/harness-gate.mmd),

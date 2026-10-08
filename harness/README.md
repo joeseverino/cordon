@@ -6,13 +6,13 @@ counterpart to the contract. **Opt-in and zero-dependency** (Node stdlib only).
 
 Two pieces:
 
-- **`policy.mjs` — the Policy Decision Point.** Pure decision logic:
+- **`policy.ts` — the Policy Decision Point.** Pure decision logic:
   `verdict(effect, preset)` returns `allow` / `confirm` / `block` with a reason;
   `resolveEffect(contract, command)` picks the effect to gate on. The ladder is
   read from [`schema/cordon-v4.json`](../schema/cordon-v4.json), so it can't drift.
   Any consumer (a CLI wrapper, an MCP server, CI) imports this and enforces at its
   own surface. One decision logic, many enforcement points.
-- **`gate.mjs` — a reference PEP for CLI tools.**
+- **`gate.ts` — a reference PEP for CLI tools.**
   `cordon-gate <tool> [command] [args...]` runs the tool's own `--describe`,
   resolves the command's effect, and allows / confirms / blocks before running it.
 
@@ -42,5 +42,5 @@ node harness/gate.ts <tool> [command] [args...]
 ## Verify
 
 ```sh
-node harness/selftest.ts   # verdict + effect-resolution invariants
+node --test harness/policy.test.ts   # verdict + effect-resolution invariants
 ```

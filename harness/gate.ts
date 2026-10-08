@@ -3,7 +3,7 @@
 //
 // Wraps a single invocation of a cordon-conformant tool: runs the tool's own
 // `--describe`, resolves the invoked command's declared effect, asks the PDP
-// (policy.mjs) for a verdict, then allows / confirms / blocks before running it.
+// (policy.ts) for a verdict, then allows / confirms / blocks before running it.
 //
 // Opt-in by design. Nothing is injected into a shell or a tool — you call
 // `cordon-gate <tool> [command] [args...]` when you want the gate. The wrapped
@@ -17,6 +17,7 @@
 
 import { spawnSync } from 'node:child_process';
 import readline from 'node:readline';
+import { errorMessage, isRecord } from '../lib/guards.ts';
 import { PRESETS, verdict, resolveEffect } from './policy.ts';
 import type { EffectContract, Preset } from './policy.ts';
 
@@ -25,7 +26,18 @@ function describe(tool: string): EffectContract {
   if (res.status !== 0 || !res.stdout) {
     throw new Error(`'${tool} --describe' did not emit a contract`);
   }
-  return JSON.parse(res.stdout) as EffectContract;
+  const doc: unknown = JSON.parse(res.stdout);
+  if (!isRecord(doc)) throw new Error(`'${tool} --describe' did not emit a contract`);
+  const contract: EffectContract = {};
+  if (typeof doc['effect'] === 'string') contract.effect = doc['effect'];
+  if (Array.isArray(doc['commands'])) {
+    const commands: unknown[] = doc['commands'];
+    contract.commands = commands.flatMap((c) => {
+      if (!isRecord(c) || typeof c['name'] !== 'string') return [];
+      return [typeof c['effect'] === 'string' ? { name: c['name'], effect: c['effect'] } : { name: c['name'] }];
+    });
+  }
+  return contract;
 }
 
 function confirm(prompt: string): Promise<boolean> {
@@ -44,7 +56,7 @@ async function main(argv: string[]): Promise<number> {
     console.error('usage: cordon-gate <tool> [command] [args...]');
     return 2;
   }
-  const presetName = process.env.CORDON_POLICY || 'local';
+  const presetName = process.env['CORDON_POLICY'] || 'local';
   const presets: Partial<Record<string, Preset>> = PRESETS;
   const preset = presets[presetName];
   if (!preset) {
@@ -72,7 +84,7 @@ async function main(argv: string[]): Promise<number> {
         console.error('cordon: declined');
         return 1;
       }
-    } else if (process.env.CORDON_GATE_BYPASS === '1') {
+    } else if (process.env['CORDON_GATE_BYPASS'] === '1') {
       console.error(`cordon: ${label} (${v.effect}) — CORDON_GATE_BYPASS set, proceeding`);
     } else {
       console.error(
@@ -88,11 +100,10 @@ async function main(argv: string[]): Promise<number> {
   return run.status ?? 1;
 }
 
-main(process.argv.slice(2)).then(
-  (code) => process.exit(code),
-  (err: Error) => {
-    // A bad tool or a non-contract --describe shouldn't dump a stack trace.
-    console.error(`cordon: ${err.message}`);
-    process.exit(1);
-  },
-);
+try {
+  process.exitCode = await main(process.argv.slice(2));
+} catch (err) {
+  // A bad tool or a non-contract --describe shouldn't dump a stack trace.
+  console.error(`cordon: ${errorMessage(err)}`);
+  process.exitCode = 1;
+}

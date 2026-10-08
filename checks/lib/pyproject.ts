@@ -54,7 +54,7 @@ export function parsePyproject(text: string): Required<Pyproject> {
       const m = l.match(/Python :: (3\.\d+)\b/);
       return m?.[1] ? [m[1]] : [];
     }),
-  )].sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)));
+  )].toSorted((a, b) => Number(a.slice(2)) - Number(b.slice(2)));
   return { name, versions, extras, buildSystem };
 }
 

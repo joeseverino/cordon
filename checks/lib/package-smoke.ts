@@ -13,26 +13,30 @@
 import { spawnSync } from 'node:child_process';
 import { readPyproject, importableModule } from './pyproject.ts';
 
-const root = process.cwd();
-const { buildSystem } = readPyproject(root);
-if (!buildSystem) {
-  console.log('no [build-system] declared — nothing to package');
-  process.exit(0);
-}
-const mod = importableModule(root);
-if (!mod) {
-  console.log('no importable module determined — skipping packaging smoke');
-  process.exit(0);
+function run(): number {
+  const root = process.cwd();
+  const { buildSystem } = readPyproject(root);
+  if (!buildSystem) {
+    console.log('no [build-system] declared — nothing to package');
+    return 0;
+  }
+  const mod = importableModule(root);
+  if (!mod) {
+    console.log('no importable module determined — skipping packaging smoke');
+    return 0;
+  }
+
+  const r = spawnSync('uv', ['run', '--no-project', '--with', '.', 'python', '-c', `import ${mod}`], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  if (r.status !== 0) {
+    process.stdout.write(`${r.stdout || ''}${r.stderr || ''}`);
+    console.error(`built package failed to import '${mod}' — the wheel is broken even though the source tree may import`);
+    return 1;
+  }
+  console.log(`packaged import ok: ${mod}`);
+  return 0;
 }
 
-const r = spawnSync('uv', ['run', '--no-project', '--with', '.', 'python', '-c', `import ${mod}`], {
-  cwd: root,
-  encoding: 'utf8',
-});
-if (r.status !== 0) {
-  process.stdout.write(`${r.stdout || ''}${r.stderr || ''}`);
-  console.error(`built package failed to import '${mod}' — the wheel is broken even though the source tree may import`);
-  process.exit(1);
-}
-console.log(`packaged import ok: ${mod}`);
-process.exit(0);
+process.exitCode = run();

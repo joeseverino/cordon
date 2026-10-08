@@ -46,6 +46,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { parseArgs, styleText } from 'node:util';
 import { checksFor } from './registry.ts';
 import { buildConfigSchema } from './config-schema.ts';
 import { detect } from './lib/capabilities.ts';
@@ -53,7 +54,8 @@ import { dropRepoLocalGitEnv } from './lib/git.ts';
 import { runProcess, DEFAULT_TIMEOUT_MS } from './lib/run-process.ts';
 import { CATALOG } from './catalog.ts';
 import { discoverScripts } from './lib/discover-scripts.ts';
-import type { Check, CheckConfig, CheckContext } from './lib/types.ts';
+import { errorMessage, isRecord } from '../lib/guards.ts';
+import type { Check, CheckConfig, CheckContext, CheckResult } from './lib/types.ts';
 import type { CommandSpec } from './catalog.ts';
 
 dropRepoLocalGitEnv();
@@ -141,11 +143,11 @@ const PHASES = ['pre-build', 'build', 'post-build'];
 const DEFAULT_PHASE = 'pre-build';
 
 const C = {
-  green: (s: string) => `\x1b[32m${s}\x1b[0m`,
-  red: (s: string) => `\x1b[31m${s}\x1b[0m`,
-  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
-  bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
-  dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
+  green: (s: string) => styleText('green', s),
+  red: (s: string) => styleText('red', s),
+  yellow: (s: string) => styleText('yellow', s),
+  bold: (s: string) => styleText('bold', s),
+  dim: (s: string) => styleText('dim', s),
 };
 
 // The check's own blast radius (cordon's effect ladder) + off-box / TTY tags —
@@ -153,82 +155,94 @@ const C = {
 // uses.
 const effectChip = (r: ResultRow) => C.dim(`[${[r.effect, r.network && '+network', r.interactive && '+interactive'].filter(Boolean).join(' ')}]`);
 
-const args = process.argv.slice(2);
-const has = (flag: string) => args.includes(flag);
-const valueOf = <T,>(flag: string, fallback: T): string | T => {
-  const i = args.indexOf(flag);
-  const v = args[i + 1];
-  return i >= 0 && v ? v : fallback;
-};
+const OPTIONS = {
+  root: { type: 'string' },
+  json: { type: 'boolean' },
+  fix: { type: 'boolean' },
+  only: { type: 'string' },
+  phase: { type: 'string' },
+  report: { type: 'boolean' },
+  list: { type: 'boolean' },
+  schema: { type: 'boolean' },
+  help: { type: 'boolean', short: 'h' },
+} as const;
 
-if (has('-h') || has('--help')) {
-  console.log(fs.readFileSync(import.meta.filename, 'utf8')
-    .split('\n').slice(1).filter((l) => l.startsWith('//')).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
-  process.exit(0);
-}
-if (has('--schema')) {
-  // Byte-deterministic so the committed checks/config.schema.json can be diffed
-  // and kept fresh by the dogfooded idempotence check (cordon.checks.json).
-  console.log(JSON.stringify(buildConfigSchema(), null, 2));
-  process.exit(0);
+interface Cli {
+  root?: string | undefined;
+  json?: boolean | undefined;
+  fix?: boolean | undefined;
+  only?: string | undefined;
+  phase?: string | undefined;
+  report?: boolean | undefined;
+  list?: boolean | undefined;
+  schema?: boolean | undefined;
+  help?: boolean | undefined;
 }
 
-const root = path.resolve(valueOf('--root', process.cwd()));
-const jsonMode = has('--json');
-const fixMode = has('--fix');
-const only = valueOf('--only', null);
-const phaseFilter = valueOf('--phase', null);
-// Write the report even on a green run when explicitly asked (--report) or in CI
-// (so the always-there summary shows there, without cluttering a local green run).
-const forceReport = has('--report') || Boolean(process.env.CI);
+function parseCli(): { cli: Cli; usageError: string | null } {
+  try {
+    return { cli: parseArgs({ options: OPTIONS, strict: true, allowPositionals: false }).values, usageError: null };
+  } catch (e) {
+    return { cli: {}, usageError: errorMessage(e) };
+  }
+}
+
+// The leading comment block of this file is the --help text.
+function helpText(): string {
+  const lines = fs.readFileSync(import.meta.filename, 'utf8').split('\n').slice(1);
+  const end = lines.findIndex((l) => !l.startsWith('//'));
+  return lines.slice(0, end).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
+}
+
+const { cli, usageError } = parseCli();
+const root = path.resolve(cli.root || process.cwd());
+const jsonMode = Boolean(cli.json);
+const fixMode = Boolean(cli.fix);
+const only = cli.only || null;
+const phaseFilter = cli.phase || null;
+// A green run writes the report only when asked (--report) or in CI.
+const forceReport = Boolean(cli.report) || Boolean(process.env['CI']);
 const reportPath = path.join(root, '.cordon-checks-report.md');
 const selfPath = import.meta.filename;
 
-// A thrown value's message, as the original `${e.message}` read it.
-function errorMessage(e: unknown): unknown {
-  return typeof e === 'object' && e !== null && 'message' in e ? e.message : undefined;
-}
-
 const say = jsonMode ? (_s: string) => {} : (s: string) => console.log(s);
 
-if (phaseFilter && !PHASES.includes(phaseFilter)) {
-  console.error(`cordon: unknown phase '${phaseFilter}' (expected ${PHASES.join(' | ')})`);
-  process.exit(2);
-}
-
-// — Per-repo config: per-check keys + enable/disable + commands[] —
 let config: RepoConfig = {};
+let entries: Entry[] = [];
 const configPath = path.join(root, 'cordon.checks.json');
-if (fs.existsSync(configPath)) {
+
+function loadConfig(): RepoConfig {
+  if (!fs.existsSync(configPath)) return {};
   try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const parsed: unknown = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (!isRecord(parsed)) throw new Error('not a JSON object');
+    return parsed;
   } catch (e) {
     console.error(`cordon: ignoring unreadable cordon.checks.json (${errorMessage(e)})`);
+    return {};
   }
 }
-// A check's own slice of cordon.checks.json (parsed JSON, so narrowed here).
-const sliceFor = (id: string) => (config[id] ?? {}) as CheckConfig;
+
+const sliceFor = (id: string): CheckConfig => {
+  const slice = config[id];
+  return isRecord(slice) ? slice : {};
+};
 const ctxFor = (id: string): CheckContext => ({ root, config: sliceFor(id) });
 
-// — Normalize every check into one entry shape the loop runs uniformly. Four
-// layers, in precedence order: cordon's in-process invariants, its built-in
-// command catalog (per-stack, auto-detected), the repo's own discovered task
-// scripts, and the repo's explicit commands[] escape hatch. A later layer
-// reusing an id intentionally overrides an earlier one (a repo replacing a
-// catalog default); `enable`/`disable` then decide what's active. —
+// Four layers merge into one id-keyed map, later layers winning: cordon's
+// in-process invariants, its per-stack command catalog, the repo's discovered
+// check:* scripts, and the repo's own commands[]. `enable`/`disable` then decide
+// what is active.
 const invariantEntries = checksFor('check').map((c): InvariantEntry => ({
   kind: 'invariant', source: 'invariant',
   id: c.id, name: c.name, effect: c.effect,
   requires: c.requires ?? [], phase: c.phase ?? DEFAULT_PHASE,
   fix: c.fix, run: c.run,
-  // The autofix seam: an invariant MAY export repair(ctx) — mechanical
-  // remediation the engine runs (only under --fix), then re-verifies.
   repair: typeof c.repair === 'function' ? c.repair : undefined,
 }));
 
-// Shape a command spec (catalog, discovered, or repo) into a runnable entry.
-// `validate` fails closed on repo data — an unclassified spec must never run as
-// if it were a safe read; catalog/discovered specs are cordon's own, trusted.
+// `validate` fails closed on repo data: an unclassified spec must never run as
+// if it were a safe read. Catalog and discovered specs are cordon's own.
 function toCommandEntry(cmd: CommandSpec, source: string, where: string, validate = false): CommandEntry {
   if (validate) {
     if (!cmd || typeof cmd !== 'object') throw new Error(`${where} must be an object`);
@@ -244,68 +258,53 @@ function toCommandEntry(cmd: CommandSpec, source: string, where: string, validat
     requires: cmd.requires ?? [], phase: cmd.phase ?? DEFAULT_PHASE,
     default: cmd.default, fix: cmd.fix ?? 'See the command output in the report for the failure.',
     exec: { cmd: cmd.exec.cmd, args: cmd.exec.args ?? [], env: cmd.exec.env },
-    // The autofix seam for commands: a spec that knows how to repair what it
-    // flags (ruff --fix, a paired fix:<name> script). Runs only under --fix.
     fixExec: cmd.fixExec ? { cmd: cmd.fixExec.cmd, args: cmd.fixExec.args ?? [], env: cmd.fixExec.env } : undefined,
     timeout: cmd.timeout ?? DEFAULT_TIMEOUT_MS,
-    // A catalog entry may vary its run over a dimension (e.g. pytest across Python
-    // versions); only cordon's own catalog declares this, never repo JSON.
+    // Only cordon's own catalog declares expand; repo JSON cannot.
     expand: typeof cmd.expand === 'function' ? cmd.expand : undefined,
   };
 }
 
-// Config-level on/off — names only, the bare-minimum knob a repo ever needs.
-// `disable` is a hard "never"; `default:'off'` checks (heavy/opt-in) stay off
-// until named in `enable` or targeted directly by `--only`. Capability
-// `requires` are evaluated later, per phase.
-const enable = new Set<string>(Array.isArray(config.enable) ? config.enable : []);
-const disable = new Set<string>(Array.isArray(config.disable) ? config.disable : []);
-const isActive = (e: Entry) =>
-  !disable.has(e.id) && (e.default !== 'off' || enable.has(e.id) || only === e.id);
+// `disable` is a hard "never"; `default:'off'` checks stay off until named in
+// `enable` or targeted by `--only`.
+function loadEntries(): Entry[] {
+  const enable = new Set<string>(Array.isArray(config.enable) ? config.enable : []);
+  const disable = new Set<string>(Array.isArray(config.disable) ? config.disable : []);
+  const isActive = (e: Entry) =>
+    !disable.has(e.id) && (e.default !== 'off' || enable.has(e.id) || only === e.id);
 
-let layers: Entry[][];
-try {
-  layers = [
+  const layers: Entry[][] = [
     invariantEntries,
     CATALOG.map((c) => toCommandEntry(c, 'catalog', `catalog '${c.id}'`)),
     discoverScripts(root).map((c) => toCommandEntry(c, 'discovered', `discovered '${c.id}'`)),
     (Array.isArray(config.commands) ? config.commands : [])
       .map((c: CommandSpec, i: number) => toCommandEntry(c, 'repo', `cordon.checks.json commands[${i}]`, true)),
   ];
-} catch (e) {
-  console.error(`cordon: ${errorMessage(e)}`);
-  process.exit(2);
+
+  // A duplicate id within one layer is ambiguous for --only; across layers it is
+  // an intentional override.
+  for (const layer of layers) {
+    const dup = layer.map((e) => e.id).filter((id, i, a) => a.indexOf(id) !== i);
+    if (dup.length) throw new Error(`duplicate check id(s): ${[...new Set(dup)].join(', ')}`);
+  }
+  const byId = new Map<string, Entry>();
+  for (const layer of layers) for (const e of layer) byId.set(e.id, e);
+  return [...byId.values()].filter(isActive);
 }
 
-// A duplicate id WITHIN a layer is an authoring mistake (ambiguous --only /
-// verdict key); a later layer reusing an earlier id is an intentional override,
-// honored by letting later layers win into the id-keyed map.
-for (const layer of layers) {
-  const dup = layer.map((e) => e.id).filter((id, i, a) => a.indexOf(id) !== i);
-  if (dup.length) {
-    console.error(`cordon: duplicate check id(s): ${[...new Set(dup)].join(', ')}`);
-    process.exit(2);
-  }
-}
-const byId = new Map<string, Entry>();
-for (const layer of layers) for (const e of layer) byId.set(e.id, e);
-const entries = [...byId.values()].filter(isActive);
 const entryById = (id: string): Entry => {
   const entry = entries.find((e) => e.id === id);
   if (!entry) throw new Error(`cordon: no check '${id}'`);
   return entry;
 };
 
-if (has('--list')) {
-  // The "what runs here, and why" view: resolve capabilities against this repo
-  // so each active check shows run vs skip(reason) — the auto-detect made visible.
+function printList(): void {
   const caps = detect(root);
   const span = Math.max(4, ...entries.map((e) => e.id.length));
   for (const e of entries) {
     const unmet = caps.unmet(e.requires);
     const mark = unmet.length ? C.yellow('skip') : C.green('run ');
     const why = unmet.length ? C.dim(` — needs ${unmet.join(', ')}`) : '';
-    // Make a matrix visible: if it'll run, show the variants it expands to.
     let matrix = '';
     if (!unmet.length && e.kind === 'command' && e.expand) {
       const variants = e.expand({ root, config: sliceFor(e.id) });
@@ -313,19 +312,7 @@ if (has('--list')) {
     }
     console.log(`  ${mark} ${e.id.padEnd(span)} ${C.dim(`[${e.source} · ${e.effect}]`)} ${e.name}${matrix}${why}`);
   }
-  process.exit(0);
 }
-
-const selected = only ? entries.filter((e) => e.id === only) : entries;
-if (only && selected.length === 0) {
-  console.error(`cordon: no such check '${only}' (try --list)`);
-  process.exit(2);
-}
-const activePhases = PHASES.filter((p) =>
-  (!phaseFilter || p === phaseFilter) && selected.some((e) => e.phase === p));
-// Emit `phase` only when the run spans more than one — minimal in the common
-// single-phase case, complete (and deterministic per config) when phases matter.
-const multiPhase = activePhases.length > 1;
 
 // The exact command to reproduce one check standalone — an invariant via this
 // runner, a command via its own exec line (env prefix + cmd + args).
@@ -417,7 +404,7 @@ async function runOne(entry: Entry, caps: Caps): Promise<ResultRow> {
   });
   const start = Date.now();
   if (entry.kind === 'invariant') {
-    let r;
+    let r: CheckResult;
     try {
       r = entry.run(ctxFor(entry.id));
     } catch (e) {
@@ -433,7 +420,7 @@ async function runOne(entry: Entry, caps: Caps): Promise<ResultRow> {
   if (variants && variants.length) {
     let failed = false;
     let durationMs = 0;
-    const parts = [];
+    const parts: string[] = [];
     for (const v of variants) {
       const r = await runProcess(entry.exec.cmd, v.args, { cwd: root, env: entry.exec.env, timeout: entry.timeout });
       if (r.spawnFailed) return spawnSkip({ duration: durationMs + r.duration }, entry.exec.cmd);
@@ -537,7 +524,47 @@ async function runPhase(phaseEntries: Entry[], caps: Caps, limit = 4) {
   return results;
 }
 
-async function main() {
+async function main(): Promise<number> {
+  if (usageError) {
+    console.error(`cordon: ${usageError} (see --help)`);
+    return 2;
+  }
+  if (cli.help) {
+    console.log(helpText());
+    return 0;
+  }
+  if (cli.schema) {
+    // Byte-deterministic: the committed checks/config.schema.json is diffed
+    // against this output by the idempotence check.
+    console.log(JSON.stringify(buildConfigSchema(), null, 2));
+    return 0;
+  }
+  if (phaseFilter && !PHASES.includes(phaseFilter)) {
+    console.error(`cordon: unknown phase '${phaseFilter}' (expected ${PHASES.join(' | ')})`);
+    return 2;
+  }
+  config = loadConfig();
+  try {
+    entries = loadEntries();
+  } catch (e) {
+    console.error(`cordon: ${errorMessage(e)}`);
+    return 2;
+  }
+  if (cli.list) {
+    printList();
+    return 0;
+  }
+
+  const selected = only ? entries.filter((e) => e.id === only) : entries;
+  if (only && selected.length === 0) {
+    console.error(`cordon: no such check '${only}' (try --list)`);
+    return 2;
+  }
+  const activePhases = PHASES.filter((p) =>
+    (!phaseFilter || p === phaseFilter) && selected.some((e) => e.phase === p));
+  // `phase` is emitted only when the run spans more than one.
+  const multiPhase = activePhases.length > 1;
+
   say(C.bold(`cordon checks · ${root}\n`));
   const results: ResultRow[] = [];
   const caps = detect(root);
@@ -564,7 +591,7 @@ async function main() {
     // table, even if the calling workflow never cats the file. This closes the
     // recurring "the gate failed but there's no cordon summary" gap: a non-zero
     // exit must never swallow the report.
-    const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+    const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
     if (stepSummary) {
       try { fs.appendFileSync(stepSummary, `${md}\n`); } catch { /* best-effort: never let publishing the report fail the run */ }
     }
@@ -597,7 +624,7 @@ async function main() {
     say(C.bold(C.red(`✗ ${failed.length} check(s) failed`)) + ` — see ${reportRel}`);
   }
 
-  process.exit(failed.length === 0 ? 0 : 1);
+  return failed.length === 0 ? 0 : 1;
 }
 
-main();
+process.exitCode = await main();

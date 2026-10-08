@@ -10,7 +10,7 @@
 //
 // Pure and dependency-free: `renderSurface(spec)` takes a typed spec and returns
 // a JSON-serializable object that validates against schema/cordon-v4.json.
-// `emitMain(spec, { url })` is the one-line drop-in for an emitter script:
+// `emitMain(spec, { dir })` is the one-line drop-in for an emitter script:
 // `--describe` prints the contract, `--write` (re)writes the committed golden,
 // `--check` fails on drift — the same `bin/<tool> --describe` convention cordon's
 // gate already drives, so conformance + drift cover a Node emitter unchanged.
@@ -18,7 +18,7 @@
 // Depend on it, don't copy it, so the emitter tracks the schema. A copy drifts.
 //
 //   import { emitMain } from 'cordon-spec/emit';
-//   emitMain(spec, { url: import.meta.url });   // handles --describe/--write/--check
+//   emitMain(spec, { dir: import.meta.dirname });   // handles --describe/--write/--check
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -302,14 +302,9 @@ export interface ScriptsOptions {
 
 /**
  * Project an npm repo's `package.json` scripts into a typed surface spec.
- * @param {object} pkg  the parsed package.json
- * @param {{ effects: Record<string,string>, group: string, order: number,
- *           name?: string, description?: string, paras?: string[],
- *           summaries?: Record<string,string>, network?: Record<string,boolean>,
- *           interactive?: Record<string,boolean> }} opts
- *   `effects` maps each EXPOSED script name to its blast radius (and is the
- *   inclusion list). `summaries`, `network`, and `interactive` optionally tag a script.
- * @returns a spec for renderSurface / emitMain.
+ * `opts.effects` maps each exposed script name to its blast radius and is the
+ * inclusion list; `summaries`, `network`, and `interactive` optionally tag a
+ * script.
  */
 export function describeScripts(pkg: PackageJson, opts: ScriptsOptions = { effects: {}, group: '', order: 0 }): SurfaceSpec {
   const { effects, group, order, summaries = {}, network = {}, interactive = {} } = opts;
@@ -369,11 +364,12 @@ const USAGE = `cordon emitter — emit-once command-surface contract.
  * contract path (default `<emitter dir>/../contract/<name>.json`), warns on any
  * command that defaulted its effect, then prints / writes / checks per argv.
  *
- * @param {object} spec  the typed surface spec
- * @param {{ url: string, contractPath?: string, argv?: string[] }} opts
- *   `url` is the emitter's import.meta.url (roots the default contract path).
+ * `dir` is the emitter's `import.meta.dirname` and roots the default contract
+ * path. `url` (its `import.meta.url`) is accepted as an alternative; `dir` wins
+ * when both are given. With neither, the working directory is the root.
  */
 export interface EmitOptions {
+  dir?: string;
   url?: string;
   contractPath?: string;
   argv?: readonly string[];
@@ -386,7 +382,7 @@ export function emitMain(spec: SurfaceSpec, opts: EmitOptions = {}): void {
     return;
   }
 
-  const here = opts.url ? path.dirname(fileURLToPath(opts.url)) : process.cwd();
+  const here = opts.dir ?? (opts.url ? path.dirname(fileURLToPath(opts.url)) : process.cwd());
   const contractPath = opts.contractPath
     ? path.resolve(here, opts.contractPath)
     : path.resolve(here, '..', 'contract', `${spec.name}.json`);
@@ -407,7 +403,8 @@ export function emitMain(spec: SurfaceSpec, opts: EmitOptions = {}): void {
     if (committed !== rendered) {
       const rel = path.relative(process.cwd(), contractPath);
       process.stderr.write(`cordon: ${rel} is stale — regenerate with \`--write\` and commit.\n`);
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
     process.stderr.write(`cordon: ${path.relative(process.cwd(), contractPath)} in sync\n`);
   } else if (argv.includes('--write')) {
