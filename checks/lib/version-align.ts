@@ -8,17 +8,12 @@
 // pyproject repo and only *fails* on a genuine mismatch.
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
+import { errorMessage } from '../../lib/guards.ts';
 
 const root = process.cwd();
 
-let toml;
-try {
-  toml = fs.readFileSync(path.join(root, 'pyproject.toml'), 'utf8');
-} catch {
-  process.exit(0); // no pyproject — nothing to do
-}
-
-// `[project].version` — scan only the [project] table, line-based so an unrelated
+// `[project].version`: scan only the [project] table, line-based so an unrelated
 // `version =` in another table (e.g. [tool.x]) can't be mistaken for it.
 function projectVersion(text: string): string | null {
   let inProject = false;
@@ -33,13 +28,10 @@ function projectVersion(text: string): string | null {
   return null;
 }
 
-const declared = projectVersion(toml);
-if (!declared) process.exit(0); // dynamic or unspecified version — nothing to align
-
 // The module __version__: a src-layout `src/<pkg>/__init__.py`, else `<pkg>/__init__.py`.
 function moduleVersion(): { file: string; version: string } | null {
   for (const base of ['src', '.']) {
-    let entries;
+    let entries: fs.Dirent[];
     try { entries = fs.readdirSync(path.join(root, base), { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       if (!e.isDirectory() || e.name === 'node_modules') continue;
@@ -53,23 +45,42 @@ function moduleVersion(): { file: string; version: string } | null {
   return null;
 }
 
-const mod = moduleVersion();
-if (!mod) process.exit(0); // no module __version__ to compare against
+function run(fix: boolean): number {
+  let toml;
+  try {
+    toml = fs.readFileSync(path.join(root, 'pyproject.toml'), 'utf8');
+  } catch {
+    return 0;
+  }
+  const declared = projectVersion(toml);
+  if (!declared) return 0;
+  const mod = moduleVersion();
+  if (!mod) return 0;
 
-if (declared !== mod.version) {
-  // --fix: pyproject [project].version is canonical (the release bumper's
-  // target), so the repair direction is deterministic — rewrite the module
-  // __version__ to match. The engine re-runs this check after, proving it.
-  if (process.argv.includes('--fix')) {
+  if (declared === mod.version) {
+    console.log(`version aligned: ${declared} (pyproject == ${mod.file})`);
+    return 0;
+  }
+  // pyproject is canonical (the release bumper's target), so the repair
+  // direction is deterministic.
+  if (fix) {
     const initPath = path.join(root, mod.file);
     const text = fs.readFileSync(initPath, 'utf8');
     fs.writeFileSync(initPath, text.replace(
       /^(__version__\s*=\s*)["'][^"']+["']/m, `$1"${declared}"`,
     ));
     console.log(`rewrote ${mod.file} __version__ ${mod.version} -> ${declared} (pyproject is canonical)`);
-    process.exit(0);
+    return 0;
   }
   console.error(`version mismatch: pyproject [project].version=${declared} but ${mod.file} __version__=${mod.version}`);
-  process.exit(1);
+  return 1;
 }
-console.log(`version aligned: ${declared} (pyproject == ${mod.file})`);
+
+let fix: boolean;
+try {
+  fix = Boolean(parseArgs({ options: { fix: { type: 'boolean' } }, strict: true, allowPositionals: false }).values.fix);
+} catch (e) {
+  console.error(`version-align: ${errorMessage(e)}`);
+  process.exit(2);
+}
+process.exitCode = run(fix);

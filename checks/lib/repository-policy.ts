@@ -13,6 +13,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isRecord } from '../../lib/guards.ts';
 import { defaultsOf } from './config.ts';
 import { isGitRepo, repoFiles } from './git.ts';
 import type { Check, ConfigSchema } from './types.ts';
@@ -25,13 +26,7 @@ interface RepositoryPolicyConfig {
   allowTaggedActions: boolean;
 }
 
-// The package.json / package-lock.json fields lockfile parity compares.
-interface PackageJson {
-  name?: unknown;
-  version?: unknown;
-  packages?: Record<string, Record<string, unknown>>;
-  [field: string]: unknown;
-}
+type PackageJson = Record<string, unknown>;
 
 // The check's config seam, declared once as JSON Schema and carried on the
 // default export — see idempotence.ts for the pattern. config-schema.ts
@@ -76,7 +71,10 @@ const DEFAULTS = defaultsOf<RepositoryPolicyConfig>(configSchema);
 
 const CONFLICT_COPY = / [0-9]+(?:\.[^/]*)?$/; // "report 2", "logo 3.png" (Finder or iCloud duplicates)
 
-const readJson = (root: string, file: string) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')) as PackageJson;
+const readJson = (root: string, file: string): PackageJson => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+  return isRecord(parsed) ? parsed : {};
+};
 const exists = (root: string, file: string) => fs.existsSync(path.join(root, file));
 
 export default {
@@ -107,20 +105,23 @@ export default {
     if (forbidden.length) fail(`forbidden tracked files (secret/build/conflict): ${forbidden.join(', ')}`);
 
     // — Universal: same-basename JS/TS siblings resolve ambiguously —
-    const stems = new Map();
+    const stems = new Map<string, Set<string>>();
     for (const f of tracked) {
       const m = f.match(/^(.*)\.(mjs|cjs|js|jsx|mts|cts|ts|tsx)$/);
-      if (!m) continue;
-      if (!stems.has(m[1])) stems.set(m[1], new Set());
-      stems.get(m[1]).add(m[2]);
+      const stem = m?.[1];
+      const ext = m?.[2];
+      if (stem === undefined || ext === undefined) continue;
+      const exts = stems.get(stem) ?? new Set<string>();
+      exts.add(ext);
+      stems.set(stem, exts);
     }
-    const collisions = [];
+    const collisions: string[] = [];
     for (const [stem, exts] of stems) {
       const js = ['mjs', 'cjs', 'js', 'jsx'].some((e) => exts.has(e));
       const ts = ['mts', 'cts', 'ts', 'tsx'].some((e) => exts.has(e));
-      if (js && ts) collisions.push(`${stem}.{${[...exts].sort().join(',')}}`);
+      if (js && ts) collisions.push(`${stem}.{${[...exts].toSorted().join(',')}}`);
     }
-    if (collisions.length) fail(`ambiguous JS/TS module siblings (bundler picks .mjs, tsc picks .ts): ${collisions.sort().join(', ')}`);
+    if (collisions.length) fail(`ambiguous JS/TS module siblings (bundler picks .mjs, tsc picks .ts): ${collisions.toSorted().join(', ')}`);
 
     // — Supply-chain: every GitHub Action pinned to a full SHA (unless opted out) —
     if (!cfg.allowTaggedActions) {
@@ -152,7 +153,7 @@ export default {
         }
       }
     }
-    if (conflicts.length) fail(`untracked conflict copies: ${conflicts.sort().join(', ')}`);
+    if (conflicts.length) fail(`untracked conflict copies: ${conflicts.toSorted().join(', ')}`);
 
     // — Config-gated, fail-soft: Node pin —
     if (cfg.checkNvmrc && exists(root, '.nvmrc')) {
@@ -166,9 +167,11 @@ export default {
     if (cfg.checkLockfile && exists(root, 'package.json') && exists(root, 'package-lock.json')) {
       const pkg = readJson(root, 'package.json');
       const lock = readJson(root, 'package-lock.json');
-      if (lock.name !== pkg.name) fail('package-lock.json name differs from package.json');
-      if (lock.version !== pkg.version) fail('package-lock.json version differs from package.json');
-      const rootPkg = lock.packages?.[''] ?? {};
+      if (lock['name'] !== pkg['name']) fail('package-lock.json name differs from package.json');
+      if (lock['version'] !== pkg['version']) fail('package-lock.json version differs from package.json');
+      const packages = lock['packages'];
+      const rootEntry = isRecord(packages) ? packages[''] : undefined;
+      const rootPkg = isRecord(rootEntry) ? rootEntry : {};
       for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
         if (!isDeepStrictEqual(rootPkg[field] ?? {}, pkg[field] ?? {})) {
           fail(`package-lock.json root ${field} differ from package.json`);

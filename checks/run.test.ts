@@ -1,33 +1,24 @@
-#!/usr/bin/env node
-// Hermetic self-test for the checks engine — the run-logic sibling of the
-// conformance fixture sweep. The fixtures prove a *verdict shape* is valid; this
-// proves the *engine* actually produces the right verdict: invariants fire,
-// command entries spawn, capability gating skips fail-soft with the right
-// `unmet`, phases order, and — closing the loop — the emitter's real `--json`
-// output validates against the published v2 schema. Zero deps; same terse
-// ok/FAIL output as conformance/validate.ts so `npm test` reads as one suite.
+// Hermetic tests for the checks engine. The conformance fixtures prove a verdict
+// shape is valid; these prove the engine produces the right verdict: invariants
+// fire, command entries spawn, capability gating skips fail-soft with the right
+// `unmet`, phases order, and the engine's real `--json` output validates against
+// the published schema.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { test } from 'node:test';
 import { parsePyproject, importableModule } from './lib/pyproject.ts';
 import { CATALOG } from './catalog.ts';
 import dispatchDups from './lib/dispatch-dups.ts';
 import batsAssertions from './lib/bats-assertions.ts';
 import { CORDON_ROOT, cordonScript } from '../lib/root.ts';
+import { collector } from '../lib/testing.ts';
 import type { Verdict, VerdictRow } from './run.ts';
 
 const repo = CORDON_ROOT;
 const RUN = cordonScript('checks/run');
 const VALIDATE = cordonScript('conformance/validate');
-let failures = 0;
-const ok = (name: string) => console.log(`  ok   ${name}`);
-const check = (name: string, cond: unknown, detail: unknown = '') => {
-  if (cond) return ok(name);
-  failures += 1;
-  console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`);
-};
-
 // A scratch repo: a Python dispatch file with a duplicate subparser id (the
 // dispatch-dups invariant must fail), plus command entries — one that passes,
 // one gated behind a missing binary, one gated behind a fixed capability this
@@ -64,73 +55,78 @@ const runJson = (root: string): { verdict: Verdict; code: number | null } => {
 };
 const rowsById = (verdict: Verdict): Record<string, VerdictRow> => Object.fromEntries(verdict.checks.map((c) => [c.id, c]));
 
-const dir = scratchRepo();
-try {
-  const { verdict, code } = runJson(dir);
-  const by = rowsById(verdict);
-
-  check('emits schema_version 3', verdict.schema_version === 3);
-  check('a plain run repairs nothing (fixed is empty)', Array.isArray(verdict.fixed) && verdict.fixed.length === 0, JSON.stringify(verdict.fixed));
-  check('exit code is non-zero on failure', code === 1, `got ${code}`);
-  check('ok reflects failures', verdict.ok === false);
-  check('failed lists the broken invariant', verdict.failed.includes('dispatch-dups'), verdict.failed.join(','));
-  check('dispatch-dups fails on the duplicate subparser id', by['dispatch-dups']?.status === 'fail');
-  check('a failed invariant carries fix + rerun', Boolean(by['dispatch-dups']?.fix && by['dispatch-dups']?.rerun), JSON.stringify(by['dispatch-dups']));
-  check('the invariant rerun targets that check', /--only dispatch-dups/.test(by['dispatch-dups']?.rerun ?? ''), by['dispatch-dups']?.rerun);
-  check('command with met deps runs and passes', by.smoke?.status === 'pass');
-  check('command with a failing exit fails', by['will-fail']?.status === 'fail');
-  check('command gated by a missing binary skips', by['needs-tool']?.status === 'skip');
-  check('the skip names the unmet capability', by['needs-tool']?.unmet?.includes('definitely-not-a-real-binary-xyz'));
-  check('command gated by a fixed capability skips, naming it', by['wrong-platform']?.status === 'skip' && by['wrong-platform']?.unmet?.includes(UNMET_PLATFORM), JSON.stringify(by['wrong-platform']));
-  // A command whose binary can't be spawned (ENOENT) and was NOT declared in
-  // requires must SKIP fail-soft, never FAIL — the false-RED the gate must avoid.
-  check('an undeclared missing binary skips, not fails', by['bad-spawn']?.status === 'skip', by['bad-spawn']?.status);
-  check('the spawn skip names the missing command in unmet', by['bad-spawn']?.unmet?.includes('definitely-not-a-real-binary-xyz'), JSON.stringify(by['bad-spawn']?.unmet));
-  check('multi-phase run emits phase on every row', verdict.checks.every((c) => typeof c.phase === 'string'));
-  check('phases order: build step ran before the post-build step', by['build-step']?.status === 'pass' && by['after-build']?.status === 'pass', `${by['build-step']?.status}/${by['after-build']?.status}`);
-  const phaseOrder = verdict.checks.map((c) => c.phase);
-  check('rows are emitted in phase order', phaseOrder.indexOf('build') > phaseOrder.lastIndexOf('pre-build')
-    && phaseOrder.indexOf('post-build') > phaseOrder.lastIndexOf('build'), phaseOrder.join(','));
-
-  // Close the loop: the emitter's real output must validate against the schema
-  // the fixtures pin — the engine can't drift from its own contract.
-  const verdictFile = path.join(dir, 'verdict.json');
-  fs.writeFileSync(verdictFile, JSON.stringify(verdict));
-  const conform = spawnSync('node', [VALIDATE, verdictFile], { cwd: repo, encoding: 'utf8' });
-  check('the live verdict validates against cordon-checks-v3', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
-
-  // A failing gate must publish its report to the CI step summary, so a red run
-  // is never silent (the recurring "exit 1, no cordon summary"). The engine owns
-  // this — it must not depend on the calling workflow catting a file.
-  const summaryFile = path.join(dir, 'step-summary.md');
-  const sumRun = spawnSync('node', [RUN, '--root', dir, '--json'],
-    { cwd: repo, encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile } });
-  const summaryText = fs.existsSync(summaryFile) ? fs.readFileSync(summaryFile, 'utf8') : '';
-  check('a failing gate exits non-zero', sumRun.status === 1, `got ${sumRun.status}`);
-  check('a failing gate publishes its report to $GITHUB_STEP_SUMMARY', /Cordon checks —/.test(summaryText));
-
-  // A bare repo (no stack markers, no config) runs only the always-available
-  // invariants, and stack-gated catalog checks skip rather than fail — the lean
-  // default posture.
-  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-selftest-bare-'));
+test('engine verdict over a scratch repo', async (t) => {
+  const { check, report } = collector();
+  const dir = scratchRepo();
   try {
-    const { verdict: v2 } = runJson(bare);
-    const b = rowsById(v2);
-    check('bare repo: a stack-gated catalog check skips, not fails', b.ruff?.status === 'skip', b.ruff?.status);
-    check('bare repo: the skip is capability-driven (file:pyproject.toml)', b.ruff?.unmet?.includes('file:pyproject.toml'), JSON.stringify(b.ruff?.unmet));
-    check('bare repo: the Go checks skip on a missing go.mod', ['gofmt', 'go-vet', 'go-test'].every((id) => b[id]?.unmet?.includes('file:go.mod')), JSON.stringify(b['go-test']?.unmet));
-    check('bare repo: a single-phase run omits phase', v2.checks.every((c) => c.phase === undefined));
+    const { verdict, code } = runJson(dir);
+    const by = rowsById(verdict);
+
+    check('emits schema_version 3', verdict.schema_version === 3);
+    check('a plain run repairs nothing (fixed is empty)', Array.isArray(verdict.fixed) && verdict.fixed.length === 0, JSON.stringify(verdict.fixed));
+    check('exit code is non-zero on failure', code === 1, `got ${code}`);
+    check('ok reflects failures', verdict.ok === false);
+    check('failed lists the broken invariant', verdict.failed.includes('dispatch-dups'), verdict.failed.join(','));
+    check('dispatch-dups fails on the duplicate subparser id', by['dispatch-dups']?.status === 'fail');
+    check('a failed invariant carries fix + rerun', Boolean(by['dispatch-dups']?.fix && by['dispatch-dups']?.rerun), JSON.stringify(by['dispatch-dups']));
+    check('the invariant rerun targets that check', /--only dispatch-dups/.test(by['dispatch-dups']?.rerun ?? ''), by['dispatch-dups']?.rerun);
+    check('command with met deps runs and passes', by['smoke']?.status === 'pass');
+    check('command with a failing exit fails', by['will-fail']?.status === 'fail');
+    check('command gated by a missing binary skips', by['needs-tool']?.status === 'skip');
+    check('the skip names the unmet capability', by['needs-tool']?.unmet?.includes('definitely-not-a-real-binary-xyz'));
+    check('command gated by a fixed capability skips, naming it', by['wrong-platform']?.status === 'skip' && by['wrong-platform']?.unmet?.includes(UNMET_PLATFORM), JSON.stringify(by['wrong-platform']));
+    // A command whose binary can't be spawned (ENOENT) and was NOT declared in
+    // requires must SKIP fail-soft, never FAIL — the false-RED the gate must avoid.
+    check('an undeclared missing binary skips, not fails', by['bad-spawn']?.status === 'skip', by['bad-spawn']?.status);
+    check('the spawn skip names the missing command in unmet', by['bad-spawn']?.unmet?.includes('definitely-not-a-real-binary-xyz'), JSON.stringify(by['bad-spawn']?.unmet));
+    check('multi-phase run emits phase on every row', verdict.checks.every((c) => typeof c.phase === 'string'));
+    check('phases order: build step ran before the post-build step', by['build-step']?.status === 'pass' && by['after-build']?.status === 'pass', `${by['build-step']?.status}/${by['after-build']?.status}`);
+    const phaseOrder = verdict.checks.map((c) => c.phase);
+    check('rows are emitted in phase order', phaseOrder.indexOf('build') > phaseOrder.lastIndexOf('pre-build')
+      && phaseOrder.indexOf('post-build') > phaseOrder.lastIndexOf('build'), phaseOrder.join(','));
+
+    // Close the loop: the emitter's real output must validate against the schema
+    // the fixtures pin — the engine can't drift from its own contract.
+    const verdictFile = path.join(dir, 'verdict.json');
+    fs.writeFileSync(verdictFile, JSON.stringify(verdict));
+    const conform = spawnSync('node', [VALIDATE, verdictFile], { cwd: repo, encoding: 'utf8' });
+    check('the live verdict validates against cordon-checks-v3', conform.status === 0, conform.stdout.trim() || conform.stderr.trim());
+
+    // A failing gate must publish its report to the CI step summary, so a red run
+    // is never silent (the recurring "exit 1, no cordon summary"). The engine owns
+    // this — it must not depend on the calling workflow catting a file.
+    const summaryFile = path.join(dir, 'step-summary.md');
+    const sumRun = spawnSync('node', [RUN, '--root', dir, '--json'],
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile } });
+    const summaryText = fs.existsSync(summaryFile) ? fs.readFileSync(summaryFile, 'utf8') : '';
+    check('a failing gate exits non-zero', sumRun.status === 1, `got ${sumRun.status}`);
+    check('a failing gate publishes its report to $GITHUB_STEP_SUMMARY', /Cordon checks —/.test(summaryText));
+
+    // A bare repo (no stack markers, no config) runs only the always-available
+    // invariants, and stack-gated catalog checks skip rather than fail — the lean
+    // default posture.
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-selftest-bare-'));
+    try {
+      const { verdict: v2 } = runJson(bare);
+      const b = rowsById(v2);
+      check('bare repo: a stack-gated catalog check skips, not fails', b['ruff']?.status === 'skip', b['ruff']?.status);
+      check('bare repo: the skip is capability-driven (file:pyproject.toml)', b['ruff']?.unmet?.includes('file:pyproject.toml'), JSON.stringify(b['ruff']?.unmet));
+      check('bare repo: the Go checks skip on a missing go.mod', ['gofmt', 'go-vet', 'go-test'].every((id) => b[id]?.unmet?.includes('file:go.mod')), JSON.stringify(b['go-test']?.unmet));
+      check('bare repo: a single-phase run omits phase', v2.checks.every((c) => c.phase === undefined));
+    } finally {
+      fs.rmSync(bare, { recursive: true, force: true });
+    }
   } finally {
-    fs.rmSync(bare, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
   }
-} finally {
-  fs.rmSync(dir, { recursive: true, force: true });
-}
+  await report(t);
+});
 
 // — The autofix seam: under --fix a failing check with a declared repair runs
 // it and re-verifies; only a green re-run reports 'fixed'. A check with no
 // repair fails exactly as before, and a plain run never repairs. —
-{
+test('autofix seam', async (t) => {
+  const { check, report } = collector();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-selftest-fix-'));
   try {
     fs.writeFileSync(path.join(dir, 'cordon.checks.json'), JSON.stringify({
@@ -201,12 +197,14 @@ try {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
-}
+  await report(t);
+});
 
 // — The Python version matrix: pyproject classifiers drive a one-check,
 // run-once-per-version pytest, with no CI matrix. First the pure resolution
 // (parsing + the catalog's expand seam), then the engine end-to-end. —
-{
+test('python version matrix', async (t) => {
+  const { check, report } = collector();
   const sample = [
     '[project]',
     'name = "x"',
@@ -263,20 +261,22 @@ try {
     fs.writeFileSync(shim, '#!/bin/sh\necho "uv $*"\nexit 0\n');
     fs.chmodSync(shim, 0o755);
     const r = spawnSync('node', [RUN, '--root', mdir, '--json'],
-      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env.PATH}` } });
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env['PATH']}` } });
     const verdict: Verdict = JSON.parse(r.stdout);
     const by = rowsById(verdict);
-    check('matrix engine: pytest runs once per version as a single passing row', by.pytest?.status === 'pass', JSON.stringify(by.pytest));
-    check('matrix engine: the row name reports the versions it covered', /3\.11.*3\.12/.test(by.pytest?.name || ''), by.pytest?.name);
+    check('matrix engine: pytest runs once per version as a single passing row', by['pytest']?.status === 'pass', JSON.stringify(by['pytest']));
+    check('matrix engine: the row name reports the versions it covered', /3\.11.*3\.12/.test(by['pytest']?.name || ''), by['pytest']?.name);
   } finally {
     fs.rmSync(mdir, { recursive: true, force: true });
     fs.rmSync(bindir, { recursive: true, force: true });
   }
-}
+  await report(t);
+});
 
 // — Package smoke: a built wheel must import. Pure resolution, then the engine
 // end-to-end with a stubbed `uv` (build path) and the no-op paths. —
-{
+test('package smoke', async (t) => {
+  const { check, report } = collector();
   const full = [
     '[build-system]',
     'requires = ["hatchling"]',
@@ -319,7 +319,7 @@ try {
     fs.writeFileSync(shim, '#!/bin/sh\necho "uv $*"\nexit 0\n');
     fs.chmodSync(shim, 0o755);
     const r = spawnSync('node', [RUN, '--root', pdir, '--json'],
-      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env.PATH}` } });
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bindir}${path.delimiter}${process.env['PATH']}` } });
     const by = rowsById(JSON.parse(r.stdout));
     check('package-smoke: a buildable package runs and passes', by['package-smoke']?.status === 'pass', JSON.stringify(by['package-smoke']));
   } finally {
@@ -339,20 +339,22 @@ try {
     fs.writeFileSync(shim, '#!/bin/sh\nexit 7\n');
     fs.chmodSync(shim, 0o755);
     const r = spawnSync('node', [RUN, '--root', nodir, '--json'],
-      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin2}${path.delimiter}${process.env.PATH}` } });
+      { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin2}${path.delimiter}${process.env['PATH']}` } });
     const by = rowsById(JSON.parse(r.stdout));
     check('package-smoke: no [build-system] ⇒ no-op pass, uv never called', by['package-smoke']?.status === 'pass', JSON.stringify(by['package-smoke']));
     fs.rmSync(bin2, { recursive: true, force: true });
   } finally {
     fs.rmSync(nodir, { recursive: true, force: true });
   }
-}
+  await report(t);
+});
 
 // — dispatch-dups & bats-assertions: the two source-scanning invariants. A dirty
 // repo must FAIL each (duplicate dispatch arm / subparser id; a non-final bats
 // statement whose failure is ignored), a clean repo must PASS — and the dispatch-dups scan must ignore a
 // parser id named only in a docstring (the false-RED to avoid). —
-{
+test('source-scanning invariants', async (t) => {
+  const { check, report } = collector();
   const dirty = fs.mkdtempSync(path.join(os.tmpdir(), 'cordon-scan-dirty-'));
   try {
     // A __main__.py with a duplicate subparser id, a duplicate dispatch arm, and
@@ -495,10 +497,5 @@ try {
   } finally {
     fs.rmSync(none, { recursive: true, force: true });
   }
-}
-
-if (failures) {
-  console.error(`\n${failures} engine self-test(s) failed`);
-  process.exit(1);
-}
-console.log('\nchecks engine self-test passed');
+  await report(t);
+});

@@ -6,11 +6,11 @@
   "commands": [
     {
       "id": "conformance",
-      "name": "Conformance + engine self-test",
+      "name": "Conformance + engine tests",
       "effect": "read",
       "requires": ["node"],
       "exec": { "cmd": "npm", "args": ["test"] },
-      "fix": "Run `npm test` (conformance/validate.ts + checks/selftest.ts) and fix the reported divergence; if a contract shape changed legitimately, update the schema, fixtures, and emitters together."
+      "fix": "Run `npm test` (node --test: conformance, checks engine, admission, harness, emitter) and fix the reported divergence; if a contract shape changed legitimately, update the schema, fixtures, and emitters together."
     },
     {
       "id": "py-emitter",
@@ -22,11 +22,11 @@
     },
     {
       "id": "harness",
-      "name": "Harness verdict self-test",
+      "name": "Harness verdict tests",
       "effect": "read",
       "requires": ["node"],
-      "exec": { "cmd": "node", "args": ["harness/selftest.ts"] },
-      "fix": "Run `node harness/selftest.ts` and fix the reported divergence in harness/policy.ts."
+      "exec": { "cmd": "node", "args": ["--test", "harness/policy.test.ts"] },
+      "fix": "Run `node --test harness/policy.test.ts` and fix the reported divergence in harness/policy.ts."
     }
   ]
 }

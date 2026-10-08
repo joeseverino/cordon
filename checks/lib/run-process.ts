@@ -10,6 +10,7 @@
 // gate runner and this engine were two copies of this exact wrapper. It lives
 // here now so process-running has one definition the whole ecosystem references.
 import { spawn } from 'node:child_process';
+import { stripVTControlCharacters } from 'node:util';
 
 export const DEFAULT_TIMEOUT_MS = 5 * 60_000;
 
@@ -39,8 +40,8 @@ export interface ProcessResult {
 // fail-soft on it instead of reporting the check red. options: cwd, env (merged
 // over process.env), timeout (ms; 0 disables),
 // stdio: 'capture' (default) buffers stdout/stderr; 'inherit' streams to the
-// terminal (and stdout/stderr come back empty). `output` is the ANSI-stripped
-// combined stream, ready for a deterministic report.
+// terminal (and stdout/stderr come back empty). `output` is the combined stream
+// with terminal control sequences stripped, ready for a deterministic report.
 export function runProcess(cmd: string, args: string[], options: RunProcessOptions = {}): Promise<ProcessResult> {
   const { cwd, env, timeout = DEFAULT_TIMEOUT_MS, stdio = 'capture' } = options;
 
@@ -71,7 +72,7 @@ export function runProcess(cmd: string, args: string[], options: RunProcessOptio
         spawnFailed: !!spawnError,
         stdout,
         stderr,
-        output: stripAnsi(`${stdout}\n${stderr}`),
+        output: stripVTControlCharacters(`${stdout}\n${stderr}`),
         duration: Date.now() - start,
         timedOut,
       });
@@ -98,9 +99,4 @@ export function runProcess(cmd: string, args: string[], options: RunProcessOptio
     });
     child.on('close', (code) => settle(code));
   });
-}
-
-export function stripAnsi(value: string): string {
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/\x1b\[[0-9;]*m/g, '');
 }

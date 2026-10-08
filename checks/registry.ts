@@ -44,5 +44,4 @@ export const CHECKS: Check[] = [
   batsAssertions,
 ];
 
-export const checkById = (id: string): Check | undefined => CHECKS.find((c) => c.id === id);
 export const checksFor = (gate?: string): Check[] => CHECKS.filter((c) => !gate || c.gates.includes(gate));

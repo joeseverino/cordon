@@ -136,14 +136,14 @@ const cannotFail = (part: string) => /^run\s/.test(part) && !/^run\s+(!|-)/.test
 // Why a non-final statement's failure would be ignored, or null when it binds.
 function ignoredReason(text: string): string | null {
   const ops = topLevelOps(text);
-  const last = ops[ops.length - 1];
+  const last = ops.at(-1);
   const tail = last?.op === '||' ? text.slice(last.at + 2).trim() : '';
   // A `|| return 1` / `|| false` tail turns any of the shapes below binding.
   if (tail && !/^(\[\[|!)\s/.test(tail)) return null;
   if (/^!\s/.test(text)) return '`! cmd` never trips errexit';
   if (/^\[\[\s/.test(text)) return '`[[ ]]` never trips errexit on bash < 4.1';
   const ands = ops.filter((o) => o.op === '&&');
-  const lastAnd = ands[ands.length - 1];
+  const lastAnd = ands.at(-1);
   // `cond && continue` / `cond && break` is loop control flow, not an assertion.
   if (lastAnd && !/^(continue|break)(\s+\d+)?;?$/.test(text.slice(lastAnd.at + 2).trim())) {
     const heads = text.slice(0, lastAnd.at).split(/&&|\|\|/).map((p) => p.trim());

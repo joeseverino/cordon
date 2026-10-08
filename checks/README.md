@@ -20,7 +20,7 @@ checks/
 ├── registry.ts          the inventory of built-in invariants (data + module refs)
 ├── catalog.ts           the inventory of built-in commands (per-stack, auto-detected)
 ├── config-schema.ts     derives the cordon.checks.json schema from each check
-├── selftest.ts          hermetic engine self-test (npm test runs it)
+├── run.test.ts          hermetic engine tests (npm test runs them)
 └── lib/
     ├── <id>.ts             one invariant each: { id, name, effect, fix, gates, run(ctx) }
     ├── types.ts            the Check / CheckContext / CheckResult contract, stated once
@@ -149,6 +149,10 @@ node checks/run.ts --fix           # run declared repairs on failures, re-run to
 node checks/run.ts --list          # the checks that apply to this repo
 node checks/run.ts --schema        # the cordon.checks.json JSON Schema
 ```
+
+An unknown flag or a flag missing its value exits 2 with a message. Human output
+is colored only on a terminal and honors `NO_COLOR` and `FORCE_COLOR`; `--json`
+output is never colored.
 
 A consuming repo runs the same engine from the published package, never a copy:
 

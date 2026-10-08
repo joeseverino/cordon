@@ -37,7 +37,7 @@ emitMain(
     effects: { build: 'local_write', deploy: 'deploy' },
     network: { deploy: true },
   }),
-  { url: import.meta.url }, // roots the contract at ../contract/<name>.json
+  { dir: import.meta.dirname }, // roots the contract at ../contract/<name>.json
 );
 ```
 
@@ -82,7 +82,7 @@ import { emitMain } from 'cordon-spec/emit';
 emitMain({ name: 'x', group: 'G', order: 1, effect: 'read',
   commands: [{ name: 'go', summary: 'do it', effect: 'local_write',
     positionals: [{ name: 'target', help: 'what to act on' }] }] },
-  { url: import.meta.url });
+  { dir: import.meta.dirname });
 ```
 
 Prefer introspection wherever a source exists — a declared surface that
@@ -93,7 +93,7 @@ duplicates one is the drift the contract is meant to kill.
 | symbol | does |
 |---|---|
 | `describeScripts(pkg, { effects, group, order, name?, description?, paras?, network?, interactive? }) -> spec` | **introspect** — derive a surface from `package.json` scripts; `effects` is the per-script blast radius and the public-surface allowlist. |
-| `emitMain(spec, { url, contractPath?, argv? })` | drop-in emitter: warn on undeclared effects, then print / `--write` / `--check` against `<url>/../contract/<name>.json`. |
+| `emitMain(spec, { dir?, url?, contractPath?, argv? })` | drop-in emitter: warn on undeclared effects, then print / `--write` / `--check` against `<dir>/../contract/<name>.json`. `dir` is the emitter's `import.meta.dirname`; `url` (its `import.meta.url`) is the accepted alternative, and `dir` wins when both are set. |
 | `renderSurface(spec) -> object` | the pure projection — the full `{ ok, schema_version, … }` document, keys in schema order, optional keys only when set. The **declare** path. |
 | `undeclaredEffects(spec) -> string[]` | command names that defaulted their blast radius. Empty = every effect was an explicit choice. |
 | `serialize(doc, { compact? }) -> string` | pretty 2-space + trailing newline (default), or the byte-minimal form a guard diffs. |
@@ -105,11 +105,11 @@ can diff it.
 ## Verify
 
 ```sh
-node emitters/node/selftest.ts            # introspection + parity with the bash fixtures
-node emitters/node/selftest.ts --emit | node conformance/validate.ts -
+node --test emitters/node/index.test.ts   # introspection + parity with the bash fixtures
+node emitters/node/index.test.ts --emit | node conformance/validate.ts -
 ```
 
-The selftest proves convergence: the **declare** projection of a reconstructed
+The tests prove convergence: the **declare** projection of a reconstructed
 spec is field-for-field identical to the bash-DSL-emitted
 [`fixtures/valid/leaf-tool.json`](../../fixtures/valid/leaf-tool.json) and
 [`subcommands.json`](../../fixtures/valid/subcommands.json) — one schema, three

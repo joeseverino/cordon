@@ -1,40 +1,33 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import process from 'node:process';
+import { isRecord } from '../lib/guards.ts';
+import { failer, parseOptions } from './_common.ts';
+import type { Fail } from './_common.ts';
 
-interface Policy {
-  id: string;
-  schema_version: number;
-  required_evidence: unknown[];
-}
+const fail: Fail = failer('cordon admission evidence');
 
-const args = process.argv.slice(2);
-const [flag, policyPath] = args;
-if (args.length !== 2 || flag !== '--policy' || policyPath === undefined) {
-  console.error('cordon admission evidence: expected --policy path');
-  process.exit(1);
-}
+const { policy: policyPath } = parseOptions(process.argv.slice(2), ['policy'], (message) => fail(`expected --policy path (${message})`));
 
-let policy: Policy;
+let policy: unknown;
 try {
-  policy = JSON.parse(fs.readFileSync(policyPath, 'utf8')) as Policy;
+  policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
 } catch {
-  console.error(`cordon admission evidence: cannot read policy: ${policyPath}`);
-  process.exit(1);
+  fail(`cannot read policy: ${policyPath}`);
 }
-if (policy.id !== 'cordon.hq-plugin' || policy.schema_version !== 1
-    || !Array.isArray(policy.required_evidence)
-    || policy.required_evidence.some((id) => typeof id !== 'string' || !id)) {
-  console.error('cordon admission evidence: incompatible policy');
-  process.exit(1);
+const evidence: unknown = isRecord(policy) ? policy['required_evidence'] : undefined;
+if (!isRecord(policy) || policy['id'] !== 'cordon.hq-plugin' || policy['schema_version'] !== 1 || !Array.isArray(evidence)) {
+  fail('incompatible policy');
 }
-if (new Set(policy.required_evidence).size !== policy.required_evidence.length) {
-  console.error('cordon admission evidence: policy evidence ids must be unique');
-  process.exit(1);
+const ids: string[] = [];
+for (const id of evidence) {
+  if (typeof id !== 'string' || !id) fail('incompatible policy');
+  ids.push(id);
 }
+if (new Set(ids).size !== ids.length) fail('policy evidence ids must be unique');
 
 console.log(JSON.stringify({
   schema_version: 1,
   ok: true,
-  evidence: policy.required_evidence.map((id) => ({ id, status: 'pass' })),
+  evidence: ids.map((id) => ({ id, status: 'pass' })),
 }));

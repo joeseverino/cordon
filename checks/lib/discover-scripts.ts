@@ -17,6 +17,7 @@
 // package.json, and the repair rides in with zero cordon config.
 import fs from 'node:fs';
 import path from 'node:path';
+import { isRecord } from '../../lib/guards.ts';
 
 export interface DiscoveredCheck {
   id: string;
@@ -29,18 +30,18 @@ export interface DiscoveredCheck {
 }
 
 export function discoverScripts(root: string): DiscoveredCheck[] {
-  let pkg: { scripts?: unknown } | null;
+  let pkg: unknown;
   try {
-    pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { scripts?: unknown } | null;
+    pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   } catch {
-    return []; // no package.json, or unreadable — nothing to discover
+    return [];
   }
-  const scripts = pkg?.scripts as Record<string, unknown> | undefined;
-  if (!scripts || typeof scripts !== 'object') return [];
+  const scripts = isRecord(pkg) ? pkg['scripts'] : undefined;
+  if (!isRecord(scripts)) return [];
 
   return Object.keys(scripts)
     .filter((name) => name.startsWith('check:'))
-    .sort()
+    .toSorted()
     .map((name) => {
       const fixScript = `fix:${name.slice('check:'.length)}`;
       return {
